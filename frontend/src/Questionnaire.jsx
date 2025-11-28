@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useI18n } from './i18n/index.jsx';
 import './Questionnaire.css';
 
 const Questionnaire = ({ userEmail, onComplete, onClose }) => {
+  const { t } = useI18n();
   const [currentSection, setCurrentSection] = useState(1);
   const [answers, setAnswers] = useState({
     q1: '',
@@ -88,20 +90,25 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
         <button className="questionnaire-close" onClick={onClose}>×</button>
         
         <div className="questionnaire-header">
-          <h2>MoodyChimp — Course Recommendation Questionnaire</h2>
+          <h2>{t('questionnaire.title')}</h2>
           <div className="questionnaire-progress">
-            Section {currentSection} of 5
+            {t('questionnaire.section')} {currentSection} {t('questionnaire.of')} 5
           </div>
         </div>
 
         <div className="questionnaire-content">
           {currentSection === 1 && (
             <div className="questionnaire-section">
-              <h3>Section 1 — Background & Experience</h3>
+              <h3>{t('questionnaire.sections.1')}</h3>
               
               <div className="questionnaire-question">
-                <label>1. How would you describe your current skill level in digital art or creation?</label>
-                {['Total beginner', 'Beginner (some attempts, no structured learning)', 'Intermediate (can complete small projects)', 'Advanced (professional or near-professional workflow)'].map(option => (
+                <label>{t('questionnaire.questions.q1.label')}</label>
+                {[
+                  t('questionnaire.questions.q1.options.totalBeginner'),
+                  t('questionnaire.questions.q1.options.beginner'),
+                  t('questionnaire.questions.q1.options.intermediate'),
+                  t('questionnaire.questions.q1.options.advanced')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -116,8 +123,15 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>2. Have you ever created any of the following? (Select all that apply)</label>
-                {['Drawings or illustrations', 'Simple animations or motion studies', 'Game concepts or prototypes', 'Character designs', '3D models', 'None of the above'].map(option => (
+                <label>{t('questionnaire.questions.q2.label')}</label>
+                {[
+                  t('questionnaire.questions.q2.options.drawings'),
+                  t('questionnaire.questions.q2.options.animations'),
+                  t('questionnaire.questions.q2.options.gameConcepts'),
+                  t('questionnaire.questions.q2.options.characterDesigns'),
+                  t('questionnaire.questions.q2.options.3dModels'),
+                  t('questionnaire.questions.q2.options.none')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="checkbox"
@@ -130,8 +144,14 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>3. Which tools have you used before? (Select all that apply)</label>
-                {['Drawing software (Krita, Photoshop, Procreate…)', 'Game engines (Unity, Unreal, Godot)', 'Animation tools (Toon Boom, Blender, RoughAnimator)', 'Coding environments', 'None'].map(option => (
+                <label>{t('questionnaire.questions.q3.label')}</label>
+                {[
+                  t('questionnaire.questions.q3.options.drawingSoftware'),
+                  t('questionnaire.questions.q3.options.gameEngines'),
+                  t('questionnaire.questions.q3.options.animationTools'),
+                  t('questionnaire.questions.q3.options.codingEnvironments'),
+                  t('questionnaire.questions.q3.options.none')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="checkbox"
@@ -147,11 +167,15 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
 
           {currentSection === 2 && (
             <div className="questionnaire-section">
-              <h3>Section 2 — Creative vs Technical Orientation</h3>
+              <h3>{t('questionnaire.sections.2')}</h3>
               
               <div className="questionnaire-question">
-                <label>4. Which statement describes you best?</label>
-                {['I enjoy coming up with ideas, characters, stories, visuals.', 'I enjoy building systems, logic, mechanics, tools.', 'A mix of both.'].map(option => (
+                <label>{t('questionnaire.questions.q4.label')}</label>
+                {[
+                  t('questionnaire.questions.q4.options.creative'),
+                  t('questionnaire.questions.q4.options.technical'),
+                  t('questionnaire.questions.q4.options.both')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -166,8 +190,12 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>5. What do you enjoy more?</label>
-                {['Creative improvisation and visual decisions', 'Step-by-step problem solving and structure', 'Both equally'].map(option => (
+                <label>{t('questionnaire.questions.q5.label')}</label>
+                {[
+                  t('questionnaire.questions.q5.options.improvisation'),
+                  t('questionnaire.questions.q5.options.problemSolving'),
+                  t('questionnaire.questions.q5.options.bothEqually')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -182,8 +210,13 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>6. What frustrates you the most?</label>
-                {['Not being able to draw what I imagine', 'Not understanding the technical tools (coding, engines, workflows)', 'Lack of discipline / no direction', 'Nothing in particular'].map(option => (
+                <label>{t('questionnaire.questions.q6.label')}</label>
+                {[
+                  t('questionnaire.questions.q6.options.drawing'),
+                  t('questionnaire.questions.q6.options.technical'),
+                  t('questionnaire.questions.q6.options.discipline'),
+                  t('questionnaire.questions.q6.options.nothing')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -201,11 +234,17 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
 
           {currentSection === 3 && (
             <div className="questionnaire-section">
-              <h3>Section 3 — Preferences & Interests</h3>
+              <h3>{t('questionnaire.sections.3')}</h3>
               
               <div className="questionnaire-question">
-                <label>7. What's your main reason for joining MoodyChimp?</label>
-                {['Learn how to make my first game', 'Improve my animation abilities', 'Master drawing the human figure in a simpler, powerful way', 'Explore different creative fields', 'Build a long-term creative career'].map(option => (
+                <label>{t('questionnaire.questions.q7.label')}</label>
+                {[
+                  t('questionnaire.questions.q7.options.game'),
+                  t('questionnaire.questions.q7.options.animation'),
+                  t('questionnaire.questions.q7.options.drawing'),
+                  t('questionnaire.questions.q7.options.explore'),
+                  t('questionnaire.questions.q7.options.career')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -220,8 +259,15 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>8. Which areas excite you the most? (Select up to 2)</label>
-                {['Characters and storytelling', 'Movement, motion, and dynamics', 'Worldbuilding and mechanics', 'Design and style', 'Technical systems and structure', 'Human anatomy, accuracy, and form'].map(option => (
+                <label>{t('questionnaire.questions.q8.label')}</label>
+                {[
+                  t('questionnaire.questions.q8.options.characters'),
+                  t('questionnaire.questions.q8.options.movement'),
+                  t('questionnaire.questions.q8.options.worldbuilding'),
+                  t('questionnaire.questions.q8.options.design'),
+                  t('questionnaire.questions.q8.options.technical'),
+                  t('questionnaire.questions.q8.options.anatomy')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="checkbox"
@@ -242,11 +288,16 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
 
           {currentSection === 4 && (
             <div className="questionnaire-section">
-              <h3>Section 4 — Commitment & Learning Style</h3>
+              <h3>{t('questionnaire.sections.4')}</h3>
               
               <div className="questionnaire-question">
-                <label>9. How much time can you commit weekly?</label>
-                {['1–2 hours', '3–5 hours', '6–10 hours', '10+ hours'].map(option => (
+                <label>{t('questionnaire.questions.q9.label')}</label>
+                {[
+                  t('questionnaire.questions.q9.options.1to2'),
+                  t('questionnaire.questions.q9.options.3to5'),
+                  t('questionnaire.questions.q9.options.6to10'),
+                  t('questionnaire.questions.q9.options.10plus')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -261,8 +312,14 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>10. What kind of learning do you prefer?</label>
-                {['Hands-on exercises and small projects', 'Step-by-step guided lessons', 'Big creative challenges', 'Theory-first, then practice', 'Practice-first, minimal theory'].map(option => (
+                <label>{t('questionnaire.questions.q10.label')}</label>
+                {[
+                  t('questionnaire.questions.q10.options.handsOn'),
+                  t('questionnaire.questions.q10.options.guided'),
+                  t('questionnaire.questions.q10.options.challenges'),
+                  t('questionnaire.questions.q10.options.theoryFirst'),
+                  t('questionnaire.questions.q10.options.practiceFirst')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -277,8 +334,13 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>11. How do you feel about learning complex software?</label>
-                {['I love it', 'I don\'t mind it', 'I prefer simple tools', 'I avoid it unless necessary'].map(option => (
+                <label>{t('questionnaire.questions.q11.label')}</label>
+                {[
+                  t('questionnaire.questions.q11.options.loveIt'),
+                  t('questionnaire.questions.q11.options.dontMind'),
+                  t('questionnaire.questions.q11.options.preferSimple'),
+                  t('questionnaire.questions.q11.options.avoid')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -296,11 +358,17 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
 
           {currentSection === 5 && (
             <div className="questionnaire-section">
-              <h3>Section 5 — Self-Assessment of Abilities</h3>
+              <h3>{t('questionnaire.sections.5')}</h3>
               
               <div className="questionnaire-question">
-                <label>12. How comfortable are you with drawing the human figure?</label>
-                {['I\'ve never seriously tried', 'I know some basics', 'I can draw basic poses', 'I understand forms and perspective', 'I\'m confident drawing people from imagination'].map(option => (
+                <label>{t('questionnaire.questions.q12.label')}</label>
+                {[
+                  t('questionnaire.questions.q12.options.neverTried'),
+                  t('questionnaire.questions.q12.options.someBasics'),
+                  t('questionnaire.questions.q12.options.basicPoses'),
+                  t('questionnaire.questions.q12.options.forms'),
+                  t('questionnaire.questions.q12.options.confident')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -315,8 +383,14 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>13. How comfortable are you with animation?</label>
-                {['Never tried', 'Can do simple bouncing balls or sketches', 'Can animate simple characters', 'Can animate intermediate sequences', 'Strong confidence'].map(option => (
+                <label>{t('questionnaire.questions.q13.label')}</label>
+                {[
+                  t('questionnaire.questions.q13.options.neverTried'),
+                  t('questionnaire.questions.q13.options.simple'),
+                  t('questionnaire.questions.q13.options.simpleCharacters'),
+                  t('questionnaire.questions.q13.options.intermediate'),
+                  t('questionnaire.questions.q13.options.strong')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -331,8 +405,14 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               </div>
 
               <div className="questionnaire-question">
-                <label>14. How comfortable are you with game development?</label>
-                {['Total beginner', 'Tried once or twice', 'Can make small prototypes', 'Understand a game engine well', 'Advanced'].map(option => (
+                <label>{t('questionnaire.questions.q14.label')}</label>
+                {[
+                  t('questionnaire.questions.q14.options.totalBeginner'),
+                  t('questionnaire.questions.q14.options.tried'),
+                  t('questionnaire.questions.q14.options.prototypes'),
+                  t('questionnaire.questions.q14.options.understand'),
+                  t('questionnaire.questions.q14.options.advanced')
+                ].map(option => (
                   <label key={option} className="questionnaire-option">
                     <input
                       type="radio"
@@ -352,7 +432,7 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
         <div className="questionnaire-footer">
           {currentSection > 1 && (
             <button className="questionnaire-btn questionnaire-btn-back" onClick={handleBack}>
-              ← Back
+              {t('questionnaire.back')}
             </button>
           )}
           {currentSection < 5 ? (
@@ -361,7 +441,7 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               onClick={handleNext}
               disabled={!canProceed()}
             >
-              Next →
+              {t('questionnaire.next')}
             </button>
           ) : (
             <button 
@@ -369,7 +449,7 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
               onClick={handleSubmit}
               disabled={!canProceed()}
             >
-              Submit
+              {t('questionnaire.submit')}
             </button>
           )}
         </div>

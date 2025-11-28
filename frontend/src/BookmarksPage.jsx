@@ -1,4 +1,8 @@
+import { useI18n } from './i18n/index.jsx';
+
 export default function BookmarksPage({ bookmarkedCourses, learnServices, onClose, onToggleBookmark }) {
+  const { t } = useI18n();
+  
   // Filter learnServices to only show bookmarked ones
   const bookmarkedServices = learnServices.filter(service => {
     const courseId = service.id || service.title;
@@ -9,12 +13,11 @@ export default function BookmarksPage({ bookmarkedCourses, learnServices, onClos
     return (
       <div className="bookmarks-page">
         <div className="bookmarks-header">
-          <h1>Saved Stuff</h1>
-          <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
+          <h1>{t('bookmarks.title')}</h1>
+          <button className="close-btn" onClick={onClose} aria-label={t('bookmarks.close')}>✕</button>
         </div>
         <div className="bookmarks-empty">
-          <p>You haven't saved any courses yet.</p>
-          <p>Click the heart icon on any course to save it here!</p>
+          <p>{t('bookmarks.empty')}</p>
         </div>
       </div>
     );
@@ -23,8 +26,8 @@ export default function BookmarksPage({ bookmarkedCourses, learnServices, onClos
   return (
     <div className="bookmarks-page">
       <div className="bookmarks-header">
-        <h1>Saved Stuff ({bookmarkedServices.length})</h1>
-        <button className="close-btn" onClick={onClose} aria-label="Close">✕</button>
+        <h1>{t('bookmarks.title')} ({bookmarkedServices.length})</h1>
+        <button className="close-btn" onClick={onClose} aria-label={t('bookmarks.close')}>✕</button>
       </div>
       <div className="bookmarks-content">
         <div className="learn-services-grid">

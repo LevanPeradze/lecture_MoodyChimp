@@ -1,0 +1,391 @@
+{
+  "header": {
+    "login": "Log in",
+    "about": "About us",
+    "contact": "Contact",
+    "instagram": "Instagram",
+    "savedStuff": "Saved Stuff",
+    "account": "Account"
+  },
+  "hero": {
+    "label": "creative studio / global",
+    "services": "Services",
+    "contact": "Contact"
+  },
+  "services": {
+    "title": "Services",
+    "learn": "Learn",
+    "create": "Create",
+    "loading": "Loading services...",
+    "noServices": "No services available.",
+    "filters": {
+      "title": "Filters",
+      "reset": "Reset",
+      "level": "Level",
+      "allLevels": "All Levels",
+      "beginner": "Beginner",
+      "intermediate": "Intermediate",
+      "advanced": "Advanced",
+      "priceRange": "Price Range",
+      "allPrices": "All Prices",
+      "under50": "Under $50",
+      "50to100": "$50 - $100",
+      "100to200": "$100 - $200",
+      "over200": "Over $200",
+      "showing": "Showing",
+      "of": "of",
+      "courses": "courses",
+      "services": "services"
+    },
+    "questionnaire": {
+      "notSure": "not sure?",
+      "findOut": "find out!"
+    }
+  },
+  "about": {
+    "title": "About us",
+    "description": "MoodyChimp is a creative studio powered by two generalists who love mixing code, cameras, and sketchbooks. We ship focused experiences, keep documentation tight, and leave room for playful discovery."
+  },
+  "footer": {
+    "email": "Email",
+    "phone": "Phone",
+    "instagram": "Instagram"
+  },
+  "login": {
+    "welcome": "Welcome",
+    "welcomeMessage": "Sign in to access your account or create a new one to get started.",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "maybeLater": "Maybe Later",
+    "email": "Email",
+    "password": "Password",
+    "createPassword": "Create Password",
+    "reenterPassword": "Re-enter Password",
+    "signingIn": "Signing in...",
+    "creatingAccount": "Creating account...",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "signUpFailed": "Sign up failed. Please try again.",
+    "invalidEmailPassword": "Invalid email or password",
+    "networkError": "Network error. Please try again."
+  },
+  "account": {
+    "back": "← Back",
+    "myAcc": "My Acc",
+    "editProfile": "Edit Profile",
+    "myOrders": "My Orders",
+    "myAccount": "My Account",
+    "email": "Email",
+    "password": "Password",
+    "logOut": "Log Out",
+    "learn": "Learn",
+    "create": "Create",
+    "purchasedCourses": "Purchased Courses",
+    "serviceOrders": "Service Orders",
+    "noCourses": "No courses purchased yet.",
+    "noOrders": "No service orders yet.",
+    "enrolled": "Enrolled:",
+    "ordered": "Ordered:",
+    "status": "Status:",
+    "completed": "Completed:",
+    "completion": "Completion:",
+    "daysRemaining": "days remaining",
+    "dayRemaining": "day remaining",
+    "dueToday": "Due today",
+    "selectSection": "Select a section above to view your orders",
+    "loadingOrders": "Loading orders...",
+    "username": "Username",
+    "profileTitle": "Profile Title",
+    "profileAvatar": "Profile Avatar",
+    "chooseImage": "Choose Image",
+    "saveChanges": "Save Changes",
+    "saving": "Saving...",
+    "profileUpdated": "Profile updated successfully!",
+    "profileUpdateFailed": "Failed to update profile",
+    "enterUsername": "Enter username",
+    "selectTitle": "Select a title",
+    "themes": "Themes",
+    "colorThemes": "Color Themes",
+    "themesDescription": "Choose a color theme to personalize your experience. Each theme has its own light and dark mode.",
+    "themeDefault": "Default",
+    "themeNeon": "Neon",
+    "themeVintage": "Vintage"
+  },
+  "details": {
+    "loading": "Loading...",
+    "error": "Item not found",
+    "goBack": "Go Back",
+    "back": "← Back",
+    "next": "Next →",
+    "description": "Description",
+    "whatYoullLearn": "What You'll Learn",
+    "whatYoullGet": "What You'll Get",
+    "difficultyLevel": "Difficulty Level",
+    "estimatedDuration": "Estimated Duration",
+    "requirements": "Requirements",
+    "courseOutline": "Course Outline",
+    "prerequisites": "Prerequisites",
+    "orderNow": "Order Now",
+    "loginPrompt": "Please log in to place an order",
+    "goToLogin": "Go to Login"
+  },
+  "order": {
+    "back": "← Back",
+    "enrollInCourse": "Enroll in Course",
+    "placeOrder": "Place Your Order",
+    "loading": "Loading",
+    "error": "Service not found",
+    "goBack": "Go Back",
+    "selectPackage": "Select Package",
+    "basic": "Basic",
+    "basicDesc": "Standard delivery, 1 revision",
+    "standard": "Standard",
+    "standardDesc": "Faster delivery, 2 revisions",
+    "premium": "Premium",
+    "premiumDesc": "Fastest delivery, unlimited revisions",
+    "deliveryTime": "Delivery Time",
+    "standardDelivery": "Standard (5-7 days) - Included",
+    "fastDelivery": "Fast (3-5 days) - Premium",
+    "veryFastDelivery": "Very Fast (1-3 days) - Premium+",
+    "additionalRevisions": "Additional Revisions",
+    "revisionsIncluded": "revisions (included)",
+    "revisionIncluded": "revision (included)",
+    "additionalRevision": "additional revision",
+    "additionalRevisionsPlural": "additional revisions",
+    "specialInstructions": "Special Instructions",
+    "instructionsPlaceholder": "Tell us about your project, specific requirements, style preferences, etc.",
+    "placingOrder": "Placing Order...",
+    "enrolling": "Enrolling...",
+    "enrollNow": "Enroll Now",
+    "orderSummary": "Order Summary",
+    "enrollmentSummary": "Enrollment Summary",
+    "service": "Service:",
+    "course": "Course:",
+    "package": "Package:",
+    "delivery": "Delivery:",
+    "level": "Level:",
+    "revisions": "Revisions:",
+    "revision": "revision",
+    "total": "Total:",
+    "whatHappensNext": "What happens next?",
+    "orderReview": "Your order will be reviewed",
+    "confirmationEmail": "You'll receive a confirmation email",
+    "workBegins": "Work will begin based on your selected delivery time",
+    "trackProgress": "You can track progress in your account",
+    "enrollmentConfirmed": "Your enrollment will be confirmed",
+    "accessMaterials": "You'll receive access to course materials",
+    "startLearning": "Start learning at your own pace",
+    "trackProgressAccount": "Track your progress in your account",
+    "orderSuccess": "Order placed successfully!",
+    "enrollmentSuccess": "Enrollment successful! You now have access to the course.",
+    "orderFailed": "Failed to place order",
+    "enrollmentFailed": "Failed to enroll in course",
+    "errorPlacingOrder": "Error placing order. Please try again.",
+    "days": "days",
+    "day": "day"
+  },
+  "bookmarks": {
+    "title": "Saved Stuff",
+    "empty": "No saved items yet.",
+    "close": "Close"
+  },
+  "preferences": {
+    "title": "Preferences",
+    "language": "Language",
+    "currency": "Currency",
+    "close": "Close",
+    "save": "Save"
+  },
+  "questionnaire": {
+    "title": "MoodyChimp — Course Recommendation Questionnaire",
+    "section": "Section",
+    "of": "of",
+    "back": "← Back",
+    "next": "Next →",
+    "submit": "Submit",
+    "sections": {
+      "1": "Section 1 — Background & Experience",
+      "2": "Section 2 — Creative vs Technical Orientation",
+      "3": "Section 3 — Preferences & Interests",
+      "4": "Section 4 — Commitment & Learning Style",
+      "5": "Section 5 — Self-Assessment of Abilities"
+    },
+    "questions": {
+      "q1": {
+        "label": "1. How would you describe your current skill level in digital art or creation?",
+        "options": {
+          "totalBeginner": "Total beginner",
+          "beginner": "Beginner (some attempts, no structured learning)",
+          "intermediate": "Intermediate (can complete small projects)",
+          "advanced": "Advanced (professional or near-professional workflow)"
+        }
+      },
+      "q2": {
+        "label": "2. Have you ever created any of the following? (Select all that apply)",
+        "options": {
+          "drawings": "Drawings or illustrations",
+          "animations": "Simple animations or motion studies",
+          "gameConcepts": "Game concepts or prototypes",
+          "characterDesigns": "Character designs",
+          "3dModels": "3D models",
+          "none": "None of the above"
+        }
+      },
+      "q3": {
+        "label": "3. Which tools have you used before? (Select all that apply)",
+        "options": {
+          "drawingSoftware": "Drawing software (Krita, Photoshop, Procreate…)",
+          "gameEngines": "Game engines (Unity, Unreal, Godot)",
+          "animationTools": "Animation tools (Toon Boom, Blender, RoughAnimator)",
+          "codingEnvironments": "Coding environments",
+          "none": "None"
+        }
+      },
+      "q4": {
+        "label": "4. Which statement describes you best?",
+        "options": {
+          "creative": "I enjoy coming up with ideas, characters, stories, visuals.",
+          "technical": "I enjoy building systems, logic, mechanics, tools.",
+          "both": "A mix of both."
+        }
+      },
+      "q5": {
+        "label": "5. What do you enjoy more?",
+        "options": {
+          "improvisation": "Creative improvisation and visual decisions",
+          "problemSolving": "Step-by-step problem solving and structure",
+          "bothEqually": "Both equally"
+        }
+      },
+      "q6": {
+        "label": "6. What frustrates you the most?",
+        "options": {
+          "drawing": "Not being able to draw what I imagine",
+          "technical": "Not understanding the technical tools (coding, engines, workflows)",
+          "discipline": "Lack of discipline / no direction",
+          "nothing": "Nothing in particular"
+        }
+      },
+      "q7": {
+        "label": "7. What's your main reason for joining MoodyChimp?",
+        "options": {
+          "game": "Learn how to make my first game",
+          "animation": "Improve my animation abilities",
+          "drawing": "Master drawing the human figure in a simpler, powerful way",
+          "explore": "Explore different creative fields",
+          "career": "Build a long-term creative career"
+        }
+      },
+      "q8": {
+        "label": "8. Which areas excite you the most? (Select up to 2)",
+        "options": {
+          "characters": "Characters and storytelling",
+          "movement": "Movement, motion, and dynamics",
+          "worldbuilding": "Worldbuilding and mechanics",
+          "design": "Design and style",
+          "technical": "Technical systems and structure",
+          "anatomy": "Human anatomy, accuracy, and form"
+        }
+      },
+      "q9": {
+        "label": "9. How much time can you commit weekly?",
+        "options": {
+          "1to2": "1–2 hours",
+          "3to5": "3–5 hours",
+          "6to10": "6–10 hours",
+          "10plus": "10+ hours"
+        }
+      },
+      "q10": {
+        "label": "10. What kind of learning do you prefer?",
+        "options": {
+          "handsOn": "Hands-on exercises and small projects",
+          "guided": "Step-by-step guided lessons",
+          "challenges": "Big creative challenges",
+          "theoryFirst": "Theory-first, then practice",
+          "practiceFirst": "Practice-first, minimal theory"
+        }
+      },
+      "q11": {
+        "label": "11. How do you feel about learning complex software?",
+        "options": {
+          "loveIt": "I love it",
+          "dontMind": "I don't mind it",
+          "preferSimple": "I prefer simple tools",
+          "avoid": "I avoid it unless necessary"
+        }
+      },
+      "q12": {
+        "label": "12. How comfortable are you with drawing the human figure?",
+        "options": {
+          "neverTried": "I've never seriously tried",
+          "someBasics": "I know some basics",
+          "basicPoses": "I can draw basic poses",
+          "forms": "I understand forms and perspective",
+          "confident": "I'm confident drawing people from imagination"
+        }
+      },
+      "q13": {
+        "label": "13. How comfortable are you with animation?",
+        "options": {
+          "neverTried": "Never tried",
+          "simple": "Can do simple bouncing balls or sketches",
+          "simpleCharacters": "Can animate simple characters",
+          "intermediate": "Can animate intermediate sequences",
+          "strong": "Strong confidence"
+        }
+      },
+      "q14": {
+        "label": "14. How comfortable are you with game development?",
+        "options": {
+          "totalBeginner": "Total beginner",
+          "tried": "Tried once or twice",
+          "prototypes": "Can make small prototypes",
+          "understand": "Understand a game engine well",
+          "advanced": "Advanced"
+        }
+      }
+    },
+    "result": {
+      "gameDev": {
+        "title": "your an NerdyChimp!",
+        "description": "the questionare has determined that the optimal course for you is GameDev"
+      },
+      "animation": {
+        "title": "your a GetReadyToBeASlaveChimp!",
+        "description": "the questionare has determined that the optimal course for you is Animation"
+      },
+      "simplifying": {
+        "title": "your a BrokeChimp!",
+        "description": "the questionare has determined that the optimal course for you is Simplifying The Human Figure"
+      },
+      "default": {
+        "title": "Thank you!",
+        "description": "Your optimal course has been determined."
+      }
+    }
+  },
+  "bananaGame": {
+    "ariaLabel": "Click the banana",
+    "tooltip": "Click count: {{count}}",
+    "milestone10": "🎉 10 clicks! You're getting the hang of it!",
+    "milestone50": "🌟 50 clicks! You're a banana master!",
+    "milestone100": "🏆 100 clicks! Legendary banana clicker!",
+    "milestone100plus": "🔥 {{count}} clicks! You're unstoppable!"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bellAriaLabel": "Notifications",
+    "bellTitle": "{{count}} unread notifications",
+    "empty": "No notifications",
+    "markAllRead": "Mark all read",
+    "clearAll": "Clear all",
+    "incompleteProfile": "Complete your profile to unlock more features!",
+    "firstLogin": "🎉 Welcome to MoodyChimp! You've unlocked your first achievement!"
+  },
+  "recentlyViewed": {
+    "title": "Recently Viewed",
+    "course": "Course",
+    "service": "Service"
+  }
+}
+

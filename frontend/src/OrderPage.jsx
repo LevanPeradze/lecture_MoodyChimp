@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useI18n } from './i18n/index.jsx';
+import { formatPrice, convertCurrency } from './i18n/currency';
+import { trackRecentlyViewed } from './DetailsPage';
 import './OrderPage.css';
 
 const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
   const { serviceId, courseId } = useParams();
   const navigate = useNavigate();
+  const { t, currency, locale } = useI18n();
   const [service, setService] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,13 +42,45 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
           // Normalize the data structure (course vs service)
           const item = orderType === 'course' ? data.course : data.service;
           setService(item);
+          
+          // Track recently viewed for order page (create services)
+          if (item && id) {
+            let thumbnail = null;
+            let illustration = null;
+            
+            if (orderType === 'course') {
+              thumbnail = item.details?.banner_image_url || null;
+              illustration = item.illustration || item.icon || null;
+            } else {
+              thumbnail = item.details?.banner_image_url || null;
+            }
+            
+            // Only set thumbnail if it's a valid non-empty string
+            if (!thumbnail || (typeof thumbnail === 'string' && thumbnail.trim() === '')) {
+              thumbnail = null;
+            }
+            
+            // Only set illustration if it's a valid non-empty string
+            if (!illustration || (typeof illustration === 'string' && illustration.trim() === '')) {
+              illustration = null;
+            }
+            
+            trackRecentlyViewed({
+              id: parseInt(id),
+              type: orderType === 'course' ? 'course' : 'service',
+              title: item.title,
+              thumbnail: thumbnail,
+              illustration: illustration,
+              isCreateService: orderType === 'service'
+            });
+          }
         } else {
           console.error('Failed to fetch item:', data.error || 'Unknown error');
-          setError(data.error || `${orderType === 'course' ? 'Course' : 'Service'} not found`);
+          setError(data.error || t('order.error'));
         }
       } catch (err) {
         console.error('Error fetching item:', err);
-        setError(`Failed to load ${orderType === 'course' ? 'course' : 'service'}. Please try again.`);
+        setError(t('order.error'));
       } finally {
         setLoading(false);
       }
@@ -159,16 +195,16 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
 
       if (response.ok && data.success) {
         setSubmitMessage(orderType === 'course' 
-          ? 'Enrollment successful! You now have access to the course.' 
-          : 'Order placed successfully!');
+          ? t('order.enrollmentSuccess')
+          : t('order.orderSuccess'));
       } else {
         setSubmitMessage(data.error || (orderType === 'course' 
-          ? 'Failed to enroll in course' 
-          : 'Failed to place order'));
+          ? t('order.enrollmentFailed')
+          : t('order.orderFailed')));
       }
     } catch (err) {
       console.error('Error placing order:', err);
-      setSubmitMessage('Error placing order. Please try again.');
+      setSubmitMessage(t('order.errorPlacingOrder'));
     } finally {
       setIsSubmitting(false);
     }
@@ -177,7 +213,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
   if (loading) {
     return (
       <div className="order-page">
-        <div className="order-loading">Loading {orderType === 'course' ? 'course' : 'service'}...</div>
+        <div className="order-loading">{t('order.loading')}</div>
       </div>
     );
   }
@@ -186,24 +222,25 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
     return (
       <div className="order-page">
         <div className="order-error">
-          <p>{error || 'Service not found'}</p>
-          <button className="order-back-btn" onClick={() => navigate(-1)}>Go Back</button>
+          <p>{error || t('order.error')}</p>
+          <button className="order-back-btn" onClick={() => navigate(-1)}>{t('order.goBack')}</button>
         </div>
       </div>
     );
   }
 
-  const totalPrice = calculatePrice();
+  const totalPriceUSD = calculatePrice();
+  const totalPrice = convertCurrency(totalPriceUSD, currency);
 
   return (
     <div className="order-page">
       <button className="order-back-btn" onClick={() => navigate(-1)}>
-        ← Back
+        {t('order.back')}
       </button>
 
       <div className="order-container">
         <div className="order-header">
-          <h1 className="order-title">{orderType === 'course' ? 'Enroll in Course' : 'Place Your Order'}</h1>
+          <h1 className="order-title">{orderType === 'course' ? t('order.enrollInCourse') : t('order.placeOrder')}</h1>
           <div className="order-service-info">
             <h2>{service.title}</h2>
             {orderType === 'service' && service.category && (
@@ -219,21 +256,21 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
           <div className="order-course-layout">
             <div className="order-summary-section order-course-summary">
               <div className="order-summary-card">
-                <h3 className="order-summary-title">Enrollment Summary</h3>
+                <h3 className="order-summary-title">{t('order.enrollmentSummary')}</h3>
                 <div className="order-summary-item">
-                  <span>Course:</span>
+                  <span>{t('order.course')}</span>
                   <span>{service.title}</span>
                 </div>
                 {service.level && (
                   <div className="order-summary-item">
-                    <span>Level:</span>
+                    <span>{t('order.level')}</span>
                     <span>{service.level}</span>
                   </div>
                 )}
                 <div className="order-summary-divider"></div>
                 <div className="order-summary-total">
-                  <span>Total:</span>
-                  <span className="order-total-price">${totalPrice}</span>
+                  <span>{t('order.total')}</span>
+                  <span className="order-total-price">{formatPrice(totalPrice, currency, locale)}</span>
                 </div>
               </div>
 
@@ -249,17 +286,17 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                   className="order-submit-btn order-course-submit"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? 'Enrolling...' : `Enroll Now - $${totalPrice}`}
+                  {isSubmitting ? t('order.enrolling') : `${t('order.enrollNow')} - ${formatPrice(totalPrice, currency, locale)}`}
                 </button>
               </form>
 
               <div className="order-info-card">
-                <h4>What happens next?</h4>
+                <h4>{t('order.whatHappensNext')}</h4>
                 <ul>
-                  <li>Your enrollment will be confirmed</li>
-                  <li>You'll receive access to course materials</li>
-                  <li>Start learning at your own pace</li>
-                  <li>Track your progress in your account</li>
+                  <li>{t('order.enrollmentConfirmed')}</li>
+                  <li>{t('order.accessMaterials')}</li>
+                  <li>{t('order.startLearning')}</li>
+                  <li>{t('order.trackProgressAccount')}</li>
                 </ul>
               </div>
             </div>
@@ -269,7 +306,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
             <div className="order-form-section">
               <form onSubmit={handleSubmit} className="order-form">
                 <div className="order-package-section">
-                <h3 className="order-section-title">Select Package</h3>
+                <h3 className="order-section-title">{t('order.selectPackage')}</h3>
                 <div className="order-package-options">
                   <label className={`order-package-option ${orderForm.packageType === 'basic' ? 'selected' : ''}`}>
                     <input
@@ -280,8 +317,8 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                       onChange={(e) => setOrderForm({ ...orderForm, packageType: e.target.value })}
                     />
                     <div className="package-info">
-                      <span className="package-name">Basic</span>
-                      <span className="package-desc">Standard delivery, 1 revision</span>
+                      <span className="package-name">{t('order.basic')}</span>
+                      <span className="package-desc">{t('order.basicDesc')}</span>
                     </div>
                   </label>
 
@@ -294,8 +331,8 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                       onChange={(e) => setOrderForm({ ...orderForm, packageType: e.target.value })}
                     />
                     <div className="package-info">
-                      <span className="package-name">Standard</span>
-                      <span className="package-desc">Faster delivery, 2 revisions</span>
+                      <span className="package-name">{t('order.standard')}</span>
+                      <span className="package-desc">{t('order.standardDesc')}</span>
                     </div>
                   </label>
 
@@ -308,47 +345,47 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                       onChange={(e) => setOrderForm({ ...orderForm, packageType: e.target.value })}
                     />
                     <div className="package-info">
-                      <span className="package-name">Premium</span>
-                      <span className="package-desc">Fastest delivery, unlimited revisions</span>
+                      <span className="package-name">{t('order.premium')}</span>
+                      <span className="package-desc">{t('order.premiumDesc')}</span>
                     </div>
                   </label>
                 </div>
               </div>
 
               <div className="order-delivery-section">
-                <h3 className="order-section-title">Delivery Time</h3>
+                <h3 className="order-section-title">{t('order.deliveryTime')}</h3>
                 <select
                   className="order-select"
                   value={orderForm.deliveryTime}
                   onChange={(e) => setOrderForm({ ...orderForm, deliveryTime: e.target.value })}
                 >
-                  <option value="standard">Standard (5-7 days) - Included</option>
-                  <option value="fast">Fast (3-5 days) - Premium</option>
-                  <option value="very-fast">Very Fast (1-3 days) - Premium+</option>
+                  <option value="standard">{t('order.standardDelivery')}</option>
+                  <option value="fast">{t('order.fastDelivery')}</option>
+                  <option value="very-fast">{t('order.veryFastDelivery')}</option>
                 </select>
               </div>
 
               <div className="order-revisions-section">
-                <h3 className="order-section-title">Additional Revisions</h3>
+                <h3 className="order-section-title">{t('order.additionalRevisions')}</h3>
                 <select
                   className="order-select"
                   value={orderForm.revisions}
                   onChange={(e) => setOrderForm({ ...orderForm, revisions: e.target.value })}
                 >
-                  <option value="0">0 revisions (included)</option>
-                  <option value="1">1 additional revision (+10%)</option>
-                  <option value="2">2 additional revisions (+20%)</option>
-                  <option value="3">3 additional revisions (+30%)</option>
+                  <option value="0">0 {t('order.additionalRevisionsPlural')}</option>
+                  <option value="1">1 {t('order.additionalRevision')} (+10%)</option>
+                  <option value="2">2 {t('order.additionalRevisionsPlural')} (+20%)</option>
+                  <option value="3">3 {t('order.additionalRevisionsPlural')} (+30%)</option>
                 </select>
               </div>
 
               <div className="order-instructions-section">
-                <h3 className="order-section-title">Special Instructions</h3>
+                <h3 className="order-section-title">{t('order.specialInstructions')}</h3>
                 <textarea
                   className="order-textarea"
                   value={orderForm.specialInstructions}
                   onChange={(e) => setOrderForm({ ...orderForm, specialInstructions: e.target.value })}
-                  placeholder="Tell us about your project, specific requirements, style preferences, etc."
+                  placeholder={t('order.instructionsPlaceholder')}
                   rows="5"
                 />
               </div>
@@ -364,44 +401,44 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                 className="order-submit-btn"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Placing Order...' : `Place Order - $${totalPrice}`}
+                {isSubmitting ? t('order.placingOrder') : `${t('order.placeOrder')} - ${formatPrice(totalPrice, currency, locale)}`}
               </button>
             </form>
           </div>
 
           <div className="order-summary-section">
             <div className="order-summary-card">
-              <h3 className="order-summary-title">Order Summary</h3>
+              <h3 className="order-summary-title">{t('order.orderSummary')}</h3>
               <div className="order-summary-item">
-                <span>Service:</span>
+                <span>{t('order.service')}</span>
                 <span>{service.title}</span>
               </div>
               <div className="order-summary-item">
-                <span>Package:</span>
-                <span className="order-capitalize">{orderForm.packageType}</span>
+                <span>{t('order.package')}</span>
+                <span className="order-capitalize">{t(`order.${orderForm.packageType}`)}</span>
               </div>
               <div className="order-summary-item">
-                <span>Delivery:</span>
-                <span>{orderForm.deliveryTime === 'standard' ? '5-7 days' : orderForm.deliveryTime === 'fast' ? '3-5 days' : '1-3 days'}</span>
+                <span>{t('order.delivery')}</span>
+                <span>{orderForm.deliveryTime === 'standard' ? '5-7 ' + t('order.days') : orderForm.deliveryTime === 'fast' ? '3-5 ' + t('order.days') : '1-3 ' + t('order.days')}</span>
               </div>
               <div className="order-summary-item">
-                <span>Revisions:</span>
-                <span>{orderForm.revisions} {orderForm.revisions === '1' ? 'revision' : 'revisions'}</span>
+                <span>{t('order.revisions')}</span>
+                <span>{orderForm.revisions} {orderForm.revisions === '1' ? t('order.revision') : t('order.revisionsIncluded')}</span>
               </div>
               <div className="order-summary-divider"></div>
               <div className="order-summary-total">
-                <span>Total:</span>
-                <span className="order-total-price">${totalPrice}</span>
+                <span>{t('order.total')}</span>
+                <span className="order-total-price">{formatPrice(totalPrice, currency, locale)}</span>
               </div>
             </div>
 
             <div className="order-info-card">
-              <h4>What happens next?</h4>
+              <h4>{t('order.whatHappensNext')}</h4>
               <ul>
-                <li>Your order will be reviewed</li>
-                <li>You'll receive a confirmation email</li>
-                <li>Work will begin based on your selected delivery time</li>
-                <li>You can track progress in your account</li>
+                <li>{t('order.orderReview')}</li>
+                <li>{t('order.confirmationEmail')}</li>
+                <li>{t('order.workBegins')}</li>
+                <li>{t('order.trackProgress')}</li>
               </ul>
             </div>
           </div>

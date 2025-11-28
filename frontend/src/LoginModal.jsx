@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useI18n } from './i18n/index.jsx';
 
-const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
-  // Default translation function if not provided
-  const translate = t || ((key) => key);
+const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
+  const { t } = useI18n();
   const [mode, setMode] = useState('initial'); // 'initial', 'signin', 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +16,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
     setLoading(true);
 
     if (password !== confirmPassword) {
-      setError(translate('passwordsDoNotMatch'));
+      setError(t('login.passwordsDoNotMatch'));
       setLoading(false);
       return;
     }
@@ -36,10 +36,10 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
         onLoginSuccess(data.user.email);
         onClose();
       } else {
-        setError(data.error || translate('signUpFailed'));
+        setError(data.error || t('login.signUpFailed'));
       }
     } catch (err) {
-      setError(translate('networkError'));
+      setError(t('login.networkError'));
     } finally {
       setLoading(false);
     }
@@ -65,10 +65,10 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
         onLoginSuccess(data.user.email);
         onClose();
       } else {
-        setError(data.error || translate('invalidEmailPassword'));
+        setError(data.error || t('login.invalidEmailPassword'));
       }
     } catch (err) {
-      setError(translate('networkError'));
+      setError(t('login.networkError'));
     } finally {
       setLoading(false);
     }
@@ -99,27 +99,27 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
 
         {mode === 'initial' && (
           <div className="login-initial">
-            <h2 className="login-title">{translate('welcome')}</h2>
-            <p className="login-subtitle">{translate('welcomeMessage')}</p>
+            <h2 className="login-title">{t('login.welcome')}</h2>
+            <p className="login-subtitle">{t('login.welcomeMessage')}</p>
             <button className="login-option-btn" onClick={() => setMode('signin')}>
-              {translate('signIn')}
+              {t('login.signIn')}
             </button>
             <button className="login-option-btn" onClick={() => setMode('signup')}>
-              {translate('signUp')}
+              {t('login.signUp')}
             </button>
             <button className="login-maybe-later" onClick={onMaybeLater}>
-              {translate('maybeLater')}
+              {t('login.maybeLater')}
             </button>
           </div>
         )}
 
         {mode === 'signin' && (
           <form className="login-form" onSubmit={handleSignIn}>
-            <h2 className="login-title">{translate('signIn')}</h2>
+            <h2 className="login-title">{t('login.signIn')}</h2>
             {error && <div className="login-error">{error}</div>}
             <input
               type="email"
-              placeholder={translate('email')}
+              placeholder={t('login.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -127,25 +127,25 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
             />
             <input
               type="password"
-              placeholder={translate('password')}
+              placeholder={t('login.password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               className="login-input"
             />
             <button type="submit" className="login-submit-btn" disabled={loading}>
-              {loading ? translate('signingIn') : translate('signIn')}
+              {loading ? t('login.signingIn') : t('login.signIn')}
             </button>
           </form>
         )}
 
         {mode === 'signup' && (
           <form className="login-form" onSubmit={handleSignUp}>
-            <h2 className="login-title">{translate('signUp')}</h2>
+            <h2 className="login-title">{t('login.signUp')}</h2>
             {error && <div className="login-error">{error}</div>}
             <input
               type="email"
-              placeholder={translate('email')}
+              placeholder={t('login.email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -153,7 +153,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
             />
             <input
               type="password"
-              placeholder={translate('createPassword')}
+              placeholder={t('login.createPassword')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -161,14 +161,14 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
             />
             <input
               type="password"
-              placeholder={translate('reenterPassword')}
+              placeholder={t('login.reenterPassword')}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               className="login-input"
             />
             <button type="submit" className="login-submit-btn" disabled={loading}>
-              {loading ? translate('creatingAccount') : translate('signUp')}
+              {loading ? t('login.creatingAccount') : t('login.signUp')}
             </button>
           </form>
         )}

@@ -1,30 +1,33 @@
+import { useI18n } from './i18n/index.jsx';
 import './QuestionnaireResult.css';
 
 const QuestionnaireResult = ({ optimalCourse, onClose }) => {
+  const { t } = useI18n();
+  
   const getResultData = () => {
     switch (optimalCourse) {
       case 'Game Dev':
         return {
-          title: 'your an NerdyChimp!',
-          description: 'the questionare has determined that the optimal course for you is GameDev',
+          title: t('questionnaire.result.gameDev.title'),
+          description: t('questionnaire.result.gameDev.description'),
           color: '#6F7FD4' // blue
         };
       case 'Animation':
         return {
-          title: 'your a GetReadyToBeASlaveChimp!',
-          description: 'the questionare has determined that the optimal course for you is Animation',
+          title: t('questionnaire.result.animation.title'),
+          description: t('questionnaire.result.animation.description'),
           color: '#FF8C42' // orange
         };
       case 'Simplifying the human figure':
         return {
-          title: 'your a BrokeChimp!',
-          description: 'the questionare has determined that the optimal course for you is Simplifying The Human Figure',
+          title: t('questionnaire.result.simplifying.title'),
+          description: t('questionnaire.result.simplifying.description'),
           color: '#FFD700' // yellow
         };
       default:
         return {
-          title: 'Thank you!',
-          description: 'Your optimal course has been determined.',
+          title: t('questionnaire.result.default.title'),
+          description: t('questionnaire.result.default.description'),
           color: '#6F7FD4'
         };
     }

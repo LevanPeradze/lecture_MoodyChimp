@@ -19,15 +19,56 @@ const pool = new Pool({
   }
 });
 
+// Test database connection
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle client', err);
+  process.exit(-1);
+});
+
+// Test connection on startup
+pool.query('SELECT NOW()')
+  .then(() => console.log('Database connected successfully'))
+  .catch(err => {
+    console.error('Database connection error:', err.message);
+    console.error('Make sure DATABASE_URL is set in .env file');
+  });
+
 // Initialize users table if it doesn't exist
 pool.query(`
   CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    username VARCHAR(255),
+    avatar_url TEXT,
+    title VARCHAR(100),
+    color_theme VARCHAR(50) DEFAULT 'default',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `).catch(err => console.error('Error creating table:', err));
+
+// Add profile columns to users table if they don't exist (for existing databases)
+pool.query(`
+  DO $$ 
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='username') THEN
+      ALTER TABLE users ADD COLUMN username VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='avatar_url') THEN
+      ALTER TABLE users ADD COLUMN avatar_url TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='title') THEN
+      ALTER TABLE users ADD COLUMN title VARCHAR(100);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='color_theme') THEN
+      ALTER TABLE users ADD COLUMN color_theme VARCHAR(50) DEFAULT 'default';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='updated_at') THEN
+      ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+    END IF;
+  END $$;
+`).catch(err => console.error('Error adding columns to users table:', err));
 
 // Initialize user_profiles table if it doesn't exist
 pool.query(`
@@ -393,9 +434,9 @@ app.get('/api/user/:email', async (req, res) => {
   try {
     const { email } = req.params;
 
-    // Get user basic info
+    // Get user data including profile fields from users table
     const userResult = await pool.query(
-      'SELECT id, email, password FROM users WHERE email = $1', 
+      'SELECT id, email, password, username, avatar_url, title, color_theme FROM users WHERE email = $1', 
       [email]
     );
     
@@ -403,21 +444,7 @@ app.get('/api/user/:email', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const user = userResult.rows[0];
-
-    // Get user profile if it exists
-    const profileResult = await pool.query(
-      'SELECT username, avatar_url, title FROM user_profiles WHERE user_email = $1',
-      [email]
-    );
-
-    // Merge user and profile data
-    const userData = {
-      ...user,
-      username: profileResult.rows[0]?.username || null,
-      avatar_url: profileResult.rows[0]?.avatar_url || null,
-      title: profileResult.rows[0]?.title || null
-    };
+    const userData = userResult.rows[0];
 
     res.json({ success: true, user: userData });
   } catch (error) {
@@ -429,7 +456,7 @@ app.get('/api/user/:email', async (req, res) => {
 // Update profile endpoint
 app.post('/api/update-profile', async (req, res) => {
   try {
-    const { email, username, avatar_url, title } = req.body;
+    const { email, username, avatar_url, title, color_theme } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
@@ -441,89 +468,53 @@ app.post('/api/update-profile', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if profile exists
-    const profileCheck = await pool.query(
-      'SELECT id FROM user_profiles WHERE user_email = $1',
-      [email]
-    );
+    // Build update query for users table
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
 
-    if (profileCheck.rows.length === 0) {
-      // Create new profile
-      const insertValues = [email];
-      const insertFields = ['user_email'];
-      const insertParams = ['$1']; // First parameter is always email
-
-      let paramCount = 2; // Start from $2 for optional fields
-
-      if (username !== undefined) {
-        insertFields.push('username');
-        insertValues.push(username);
-        insertParams.push(`$${paramCount++}`);
-      }
-      if (avatar_url !== undefined) {
-        insertFields.push('avatar_url');
-        insertValues.push(avatar_url);
-        insertParams.push(`$${paramCount++}`);
-      }
-      if (title !== undefined) {
-        insertFields.push('title');
-        insertValues.push(title);
-        insertParams.push(`$${paramCount++}`);
-      }
-
-      const insertQuery = `
-        INSERT INTO user_profiles (${insertFields.join(', ')}) 
-        VALUES (${insertParams.join(', ')}) 
-        RETURNING username, avatar_url, title
-      `;
-
-      const result = await pool.query(insertQuery, insertValues);
-      return res.json({ success: true, user: { email, ...result.rows[0] } });
-    } else {
-      // Update existing profile
-      const updates = [];
-      const values = [];
-      let paramCount = 1;
-
-      if (username !== undefined) {
-        updates.push(`username = $${paramCount++}`);
-        values.push(username);
-      }
-      if (avatar_url !== undefined) {
-        updates.push(`avatar_url = $${paramCount++}`);
-        values.push(avatar_url);
-      }
-      if (title !== undefined) {
-        updates.push(`title = $${paramCount++}`);
-        values.push(title);
-      }
-
-      if (updates.length === 0) {
-        return res.status(400).json({ error: 'No fields to update' });
-      }
-
-      // Add updated_at timestamp
-      updates.push(`updated_at = CURRENT_TIMESTAMP`);
-
-      // Add email as the last parameter for WHERE clause
-      values.push(email);
-      const emailParam = `$${paramCount}`;
-
-      const updateQuery = `
-        UPDATE user_profiles 
-        SET ${updates.join(', ')} 
-        WHERE user_email = ${emailParam} 
-        RETURNING username, avatar_url, title
-      `;
-
-      const result = await pool.query(updateQuery, values);
-
-      if (result.rows.length === 0) {
-        return res.status(404).json({ error: 'Profile not found' });
-      }
-
-      res.json({ success: true, user: { email, ...result.rows[0] } });
+    if (username !== undefined) {
+      updates.push(`username = $${paramCount++}`);
+      values.push(username);
     }
+    if (avatar_url !== undefined) {
+      updates.push(`avatar_url = $${paramCount++}`);
+      values.push(avatar_url);
+    }
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (color_theme !== undefined) {
+      updates.push(`color_theme = $${paramCount++}`);
+      values.push(color_theme);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    // Add updated_at timestamp
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+    // Add email as the last parameter for WHERE clause
+    values.push(email);
+    const emailParam = `$${paramCount}`;
+
+    const updateQuery = `
+      UPDATE users 
+      SET ${updates.join(', ')} 
+      WHERE email = ${emailParam} 
+      RETURNING id, email, username, avatar_url, title, color_theme
+    `;
+
+    const result = await pool.query(updateQuery, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, user: result.rows[0] });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -570,7 +561,11 @@ app.get('/api/services', async (req, res) => {
     res.json({ success: true, services: result.rows });
   } catch (error) {
     console.error('Get all services error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -638,7 +633,11 @@ app.get('/api/course-services', async (req, res) => {
     res.json({ success: true, services: result.rows });
   } catch (error) {
     console.error('Get course services error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      success: false,
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -1052,5 +1051,9 @@ function determineOptimalCourse(answers) {
 
 app.listen(PORT, () => {
   console.log(`Backend API running on http://localhost:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  if (!process.env.DATABASE_URL) {
+    console.warn('WARNING: DATABASE_URL not set in environment variables');
+  }
 });
 

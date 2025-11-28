@@ -1,0 +1,253 @@
+.preferences-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.preferences-modal {
+  background: var(--bg-color, #ffffff);
+  border-radius: 12px;
+  padding: 0;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.preferences-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preferences-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-color, #000000);
+}
+
+.preferences-close-btn {
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: var(--text-color, #666666);
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.preferences-close-btn:hover {
+  background-color: var(--hover-bg, #f0f0f0);
+}
+
+.preferences-content {
+  padding: 24px;
+}
+
+.preferences-section {
+  margin-bottom: 32px;
+}
+
+.preferences-section:last-child {
+  margin-bottom: 0;
+}
+
+.preferences-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: var(--text-color, #000000);
+}
+
+.preferences-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preferences-option {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border: 2px solid var(--border-color, #e0e0e0);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--bg-color, #ffffff);
+}
+
+.preferences-option:hover {
+  border-color: var(--primary-color, #6F7FD4);
+  background: var(--hover-bg, #f8f9ff);
+}
+
+.preferences-option.selected {
+  border-color: var(--primary-color, #6F7FD4);
+  background: var(--selected-bg, #f0f4ff);
+}
+
+.preferences-option input[type="radio"] {
+  margin-right: 12px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  accent-color: var(--primary-color, #6F7FD4);
+}
+
+.preferences-option span {
+  font-size: 16px;
+  color: var(--text-color, #000000);
+  flex: 1;
+}
+
+.preferences-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 24px;
+  border-top: 1px solid var(--border-color, #e0e0e0);
+}
+
+.preferences-cancel-btn,
+.preferences-save-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.preferences-cancel-btn {
+  background: var(--bg-color, #ffffff);
+  color: var(--text-color, #666666);
+  border: 2px solid var(--border-color, #e0e0e0);
+}
+
+.preferences-cancel-btn:hover {
+  background: var(--hover-bg, #f0f0f0);
+}
+
+.preferences-save-btn {
+  background: var(--primary-color, #6F7FD4);
+  color: #ffffff;
+}
+
+.preferences-save-btn:hover {
+  background: var(--primary-hover, #5a6bc4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(111, 127, 212, 0.3);
+}
+
+/* Dark mode support */
+.dark-mode .preferences-modal {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.dark-mode .preferences-title {
+  color: #ffffff;
+}
+
+.dark-mode .preferences-label {
+  color: #ffffff;
+}
+
+.dark-mode .preferences-option {
+  background: #2a2a2a;
+  border-color: #404040;
+  color: #ffffff;
+}
+
+.dark-mode .preferences-option:hover {
+  background: #333333;
+  border-color: #6F7FD4;
+}
+
+.dark-mode .preferences-option.selected {
+  background: #2a2a4a;
+  border-color: #6F7FD4;
+}
+
+.dark-mode .preferences-option span {
+  color: #ffffff;
+}
+
+.dark-mode .preferences-close-btn {
+  color: #cccccc;
+}
+
+.dark-mode .preferences-close-btn:hover {
+  background-color: #333333;
+}
+
+.dark-mode .preferences-cancel-btn {
+  background: #2a2a2a;
+  color: #cccccc;
+  border-color: #404040;
+}
+
+.dark-mode .preferences-cancel-btn:hover {
+  background: #333333;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .preferences-modal {
+    width: 95%;
+    max-height: 95vh;
+  }
+
+  .preferences-header,
+  .preferences-content,
+  .preferences-footer {
+    padding: 20px;
+  }
+
+  .preferences-title {
+    font-size: 20px;
+  }
+}
+
