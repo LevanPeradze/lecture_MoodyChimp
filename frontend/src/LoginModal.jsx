@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
-const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
+const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess, t }) => {
+  // Default translation function if not provided
+  const translate = t || ((key) => key);
   const [mode, setMode] = useState('initial'); // 'initial', 'signin', 'signup'
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,7 +16,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
     setLoading(true);
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(translate('passwordsDoNotMatch'));
       setLoading(false);
       return;
     }
@@ -34,10 +36,10 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
         onLoginSuccess(data.user.email);
         onClose();
       } else {
-        setError(data.error || 'Sign up failed');
+        setError(data.error || translate('signUpFailed'));
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(translate('networkError'));
     } finally {
       setLoading(false);
     }
@@ -63,10 +65,10 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
         onLoginSuccess(data.user.email);
         onClose();
       } else {
-        setError(data.error || 'Invalid email or password');
+        setError(data.error || translate('invalidEmailPassword'));
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      setError(translate('networkError'));
     } finally {
       setLoading(false);
     }
@@ -97,26 +99,27 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
 
         {mode === 'initial' && (
           <div className="login-initial">
-            <h2 className="login-title">Welcome</h2>
+            <h2 className="login-title">{translate('welcome')}</h2>
+            <p className="login-subtitle">{translate('welcomeMessage')}</p>
             <button className="login-option-btn" onClick={() => setMode('signin')}>
-              Sign In
+              {translate('signIn')}
             </button>
             <button className="login-option-btn" onClick={() => setMode('signup')}>
-              Sign Up
+              {translate('signUp')}
             </button>
             <button className="login-maybe-later" onClick={onMaybeLater}>
-              Maybe later
+              {translate('maybeLater')}
             </button>
           </div>
         )}
 
         {mode === 'signin' && (
           <form className="login-form" onSubmit={handleSignIn}>
-            <h2 className="login-title">Sign In</h2>
+            <h2 className="login-title">{translate('signIn')}</h2>
             {error && <div className="login-error">{error}</div>}
             <input
               type="email"
-              placeholder="Email"
+              placeholder={translate('email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -124,25 +127,25 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
             />
             <input
               type="password"
-              placeholder="Password"
+              placeholder={translate('password')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               className="login-input"
             />
             <button type="submit" className="login-submit-btn" disabled={loading}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? translate('signingIn') : translate('signIn')}
             </button>
           </form>
         )}
 
         {mode === 'signup' && (
           <form className="login-form" onSubmit={handleSignUp}>
-            <h2 className="login-title">Sign Up</h2>
+            <h2 className="login-title">{translate('signUp')}</h2>
             {error && <div className="login-error">{error}</div>}
             <input
               type="email"
-              placeholder="Email"
+              placeholder={translate('email')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -150,7 +153,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
             />
             <input
               type="password"
-              placeholder="Create Password"
+              placeholder={translate('createPassword')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -158,14 +161,14 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
             />
             <input
               type="password"
-              placeholder="Re-enter Password"
+              placeholder={translate('reenterPassword')}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               className="login-input"
             />
             <button type="submit" className="login-submit-btn" disabled={loading}>
-              {loading ? 'Creating account...' : 'Sign Up'}
+              {loading ? translate('creatingAccount') : translate('signUp')}
             </button>
           </form>
         )}

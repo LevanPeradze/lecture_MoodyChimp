@@ -8,7 +8,8 @@ const PORT = process.env.PORT || 4000;
 
 // Enable JSON parsing and basic CORS so the frontend can call the API locally.
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase limit to handle base64 image data
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // PostgreSQL connection pool
 const pool = new Pool({
@@ -27,6 +28,29 @@ pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `).catch(err => console.error('Error creating table:', err));
+
+// Initialize user_profiles table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS user_profiles (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) UNIQUE NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    username VARCHAR(255),
+    avatar_url TEXT,
+    title VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating user_profiles table:', err));
+
+// Update avatar_url column to TEXT if it exists as VARCHAR
+pool.query(`
+  DO $$ 
+  BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='user_profiles' AND column_name='avatar_url' AND data_type='character varying') THEN
+      ALTER TABLE user_profiles ALTER COLUMN avatar_url TYPE TEXT;
+    END IF;
+  END $$;
+`).catch(err => console.error('Error updating avatar_url column:', err));
 
 // Initialize services table if it doesn't exist
 pool.query(`
@@ -51,6 +75,71 @@ pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `).catch(err => console.error('Error creating Course_Service table:', err));
+
+// Initialize service_details table for comprehensive service information
+pool.query(`
+  CREATE TABLE IF NOT EXISTS service_details (
+    id SERIAL PRIMARY KEY,
+    service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    banner_image_url TEXT,
+    full_description TEXT,
+    difficulty_level VARCHAR(50),
+    estimated_duration VARCHAR(100),
+    what_youll_learn TEXT,
+    requirements TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(service_id)
+  )
+`).catch(err => console.error('Error creating service_details table:', err));
+
+// Initialize course_details table for comprehensive course information
+pool.query(`
+  CREATE TABLE IF NOT EXISTS course_details (
+    id SERIAL PRIMARY KEY,
+    course_id INTEGER NOT NULL REFERENCES Course_Service(id) ON DELETE CASCADE,
+    banner_image_url TEXT,
+    full_description TEXT,
+    what_youll_learn TEXT,
+    course_outline TEXT,
+    prerequisites TEXT,
+    estimated_duration VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(course_id)
+  )
+`).catch(err => console.error('Error creating course_details table:', err));
+
+// Initialize reviews table for ratings and comments
+pool.query(`
+  CREATE TABLE IF NOT EXISTS reviews (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    item_id INTEGER NOT NULL,
+    item_type VARCHAR(50) NOT NULL CHECK (item_type IN ('course', 'service')),
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating reviews table:', err));
+
+// Initialize orders table for service orders
+pool.query(`
+  CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL,
+    service_id INTEGER NOT NULL REFERENCES services(id) ON DELETE CASCADE,
+    service_title VARCHAR(255) NOT NULL,
+    order_details JSONB,
+    total_price DECIMAL(10, 2),
+    status VARCHAR(50) DEFAULT 'pending',
+    delivery_time VARCHAR(100),
+    special_instructions TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating orders table:', err));
 
 // Initialize questionare table if it doesn't exist
 pool.query(`
@@ -130,9 +219,45 @@ const insertDefaultServices = async () => {
 // Insert default course services (Learn services) if they don't exist
 const insertDefaultCourseServices = async () => {
   const courseServices = [
-    { title: 'Game Dev', level: 'for beginners', icon: '🎮', illustration: '🎮' },
-    { title: 'Animation', level: 'beginner-intermediate', icon: '🎬', illustration: '🎬' },
-    { title: 'Simplifying the human figure', level: 'intermediate-advanced', icon: '✏️', illustration: '✏️' },
+    { 
+      title: 'Game Dev', 
+      level: 'for beginners', 
+      icon: '🎮', 
+      illustration: '🎮',
+      details: {
+        full_description: 'Learn the fundamentals of game development from scratch. This comprehensive course covers game design principles, programming basics, and hands-on project creation. Perfect for absolute beginners who want to create their first game.',
+        what_youll_learn: '• Game design fundamentals and mechanics\n• Basic programming concepts for games\n• Unity or Godot engine basics\n• Creating your first playable game\n• Game asset integration\n• Debugging and optimization techniques',
+        course_outline: 'Module 1: Introduction to Game Development\nModule 2: Game Design Basics\nModule 3: Programming Fundamentals\nModule 4: Game Engine Basics\nModule 5: Your First Game Project\nModule 6: Polish and Publishing',
+        prerequisites: 'No prior experience required. Basic computer skills recommended.',
+        estimated_duration: '8-12 weeks'
+      }
+    },
+    { 
+      title: 'Animation', 
+      level: 'beginner-intermediate', 
+      icon: '🎬', 
+      illustration: '🎬',
+      details: {
+        full_description: 'Master the art of animation from keyframe planning to smooth motion. Learn traditional and digital animation techniques, timing, spacing, and character movement. Build a portfolio of animated sequences.',
+        what_youll_learn: '• Principles of animation (squash & stretch, timing, etc.)\n• Keyframe planning and storyboarding\n• Character animation techniques\n• Motion graphics and effects\n• Animation software proficiency\n• Creating polished animation sequences',
+        course_outline: 'Module 1: Animation Principles\nModule 2: Keyframe Planning\nModule 3: Character Animation\nModule 4: Motion Graphics\nModule 5: Advanced Techniques\nModule 6: Portfolio Development',
+        prerequisites: 'Basic drawing skills helpful but not required.',
+        estimated_duration: '10-14 weeks'
+      }
+    },
+    { 
+      title: 'Simplifying the human figure', 
+      level: 'intermediate-advanced', 
+      icon: '✏️', 
+      illustration: '✏️',
+      details: {
+        full_description: 'Advanced course on drawing the human figure with simplified, powerful forms. Learn to break down complex anatomy into essential shapes, master proportions, and create dynamic figure drawings from imagination.',
+        what_youll_learn: '• Human anatomy fundamentals\n• Simplification techniques\n• Gesture and movement\n• Proportions and measurements\n• Drawing from imagination\n• Style development and personal expression',
+        course_outline: 'Module 1: Anatomy Basics\nModule 2: Simplification Methods\nModule 3: Gesture Drawing\nModule 4: Proportions Mastery\nModule 5: Dynamic Poses\nModule 6: Style Development',
+        prerequisites: 'Intermediate drawing skills required. Basic understanding of human form recommended.',
+        estimated_duration: '12-16 weeks'
+      }
+    },
   ];
 
   for (const course of courseServices) {
@@ -143,12 +268,40 @@ const insertDefaultCourseServices = async () => {
         [course.title]
       );
       
+      let courseId;
       if (existing.rows.length === 0) {
-        await pool.query(
-          'INSERT INTO Course_Service (title, level, icon, illustration) VALUES ($1, $2, $3, $4)',
+        const result = await pool.query(
+          'INSERT INTO Course_Service (title, level, icon, illustration) VALUES ($1, $2, $3, $4) RETURNING id',
           [course.title, course.level, course.icon, course.illustration]
         );
+        courseId = result.rows[0].id;
         console.log(`Inserted course service: ${course.title}`);
+      } else {
+        courseId = existing.rows[0].id;
+      }
+
+      // Insert course details if they don't exist
+      if (course.details) {
+        const detailsExisting = await pool.query(
+          'SELECT id FROM course_details WHERE course_id = $1',
+          [courseId]
+        );
+
+        if (detailsExisting.rows.length === 0) {
+          await pool.query(
+            `INSERT INTO course_details (course_id, full_description, what_youll_learn, course_outline, prerequisites, estimated_duration) 
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              courseId,
+              course.details.full_description,
+              course.details.what_youll_learn,
+              course.details.course_outline,
+              course.details.prerequisites,
+              course.details.estimated_duration
+            ]
+          );
+          console.log(`Inserted course details for: ${course.title}`);
+        }
       }
     } catch (err) {
       console.error('Error inserting course service:', err);
@@ -240,15 +393,139 @@ app.get('/api/user/:email', async (req, res) => {
   try {
     const { email } = req.params;
 
-    const result = await pool.query('SELECT id, email, password FROM users WHERE email = $1', [email]);
+    // Get user basic info
+    const userResult = await pool.query(
+      'SELECT id, email, password FROM users WHERE email = $1', 
+      [email]
+    );
     
-    if (result.rows.length === 0) {
+    if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ success: true, user: result.rows[0] });
+    const user = userResult.rows[0];
+
+    // Get user profile if it exists
+    const profileResult = await pool.query(
+      'SELECT username, avatar_url, title FROM user_profiles WHERE user_email = $1',
+      [email]
+    );
+
+    // Merge user and profile data
+    const userData = {
+      ...user,
+      username: profileResult.rows[0]?.username || null,
+      avatar_url: profileResult.rows[0]?.avatar_url || null,
+      title: profileResult.rows[0]?.title || null
+    };
+
+    res.json({ success: true, user: userData });
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update profile endpoint
+app.post('/api/update-profile', async (req, res) => {
+  try {
+    const { email, username, avatar_url, title } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if profile exists
+    const profileCheck = await pool.query(
+      'SELECT id FROM user_profiles WHERE user_email = $1',
+      [email]
+    );
+
+    if (profileCheck.rows.length === 0) {
+      // Create new profile
+      const insertValues = [email];
+      const insertFields = ['user_email'];
+      const insertParams = ['$1']; // First parameter is always email
+
+      let paramCount = 2; // Start from $2 for optional fields
+
+      if (username !== undefined) {
+        insertFields.push('username');
+        insertValues.push(username);
+        insertParams.push(`$${paramCount++}`);
+      }
+      if (avatar_url !== undefined) {
+        insertFields.push('avatar_url');
+        insertValues.push(avatar_url);
+        insertParams.push(`$${paramCount++}`);
+      }
+      if (title !== undefined) {
+        insertFields.push('title');
+        insertValues.push(title);
+        insertParams.push(`$${paramCount++}`);
+      }
+
+      const insertQuery = `
+        INSERT INTO user_profiles (${insertFields.join(', ')}) 
+        VALUES (${insertParams.join(', ')}) 
+        RETURNING username, avatar_url, title
+      `;
+
+      const result = await pool.query(insertQuery, insertValues);
+      return res.json({ success: true, user: { email, ...result.rows[0] } });
+    } else {
+      // Update existing profile
+      const updates = [];
+      const values = [];
+      let paramCount = 1;
+
+      if (username !== undefined) {
+        updates.push(`username = $${paramCount++}`);
+        values.push(username);
+      }
+      if (avatar_url !== undefined) {
+        updates.push(`avatar_url = $${paramCount++}`);
+        values.push(avatar_url);
+      }
+      if (title !== undefined) {
+        updates.push(`title = $${paramCount++}`);
+        values.push(title);
+      }
+
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No fields to update' });
+      }
+
+      // Add updated_at timestamp
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+
+      // Add email as the last parameter for WHERE clause
+      values.push(email);
+      const emailParam = `$${paramCount}`;
+
+      const updateQuery = `
+        UPDATE user_profiles 
+        SET ${updates.join(', ')} 
+        WHERE user_email = ${emailParam} 
+        RETURNING username, avatar_url, title
+      `;
+
+      const result = await pool.query(updateQuery, values);
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+
+      res.json({ success: true, user: { email, ...result.rows[0] } });
+    }
+  } catch (error) {
+    console.error('Update profile error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -285,8 +562,59 @@ app.post('/api/verify-password', async (req, res) => {
   }
 });
 
+// Get all services endpoint
+app.get('/api/services', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM services ORDER BY category, id');
+
+    res.json({ success: true, services: result.rows });
+  } catch (error) {
+    console.error('Get all services error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get service details by ID endpoint (must come before /:category to avoid route conflicts)
+app.get('/api/services/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const serviceId = parseInt(id, 10);
+
+    // Check if id is numeric (service ID)
+    if (isNaN(serviceId)) {
+      return res.status(404).json({ success: false, error: 'Invalid service ID' });
+    }
+
+    // Get service basic info
+    const serviceResult = await pool.query('SELECT * FROM services WHERE id = $1', [serviceId]);
+    
+    if (serviceResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'Service not found' });
+    }
+
+    const service = serviceResult.rows[0];
+
+    // Get service details if they exist
+    const detailsResult = await pool.query(
+      'SELECT * FROM service_details WHERE service_id = $1',
+      [serviceId]
+    );
+
+    // Merge service and details
+    const serviceData = {
+      ...service,
+      details: detailsResult.rows[0] || null
+    };
+
+    return res.json({ success: true, service: serviceData });
+  } catch (error) {
+    console.error('Get service details error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Get services by category endpoint
-app.get('/api/services/:category', async (req, res) => {
+app.get('/api/services/category/:category', async (req, res) => {
   try {
     const { category } = req.params;
 
@@ -302,18 +630,6 @@ app.get('/api/services/:category', async (req, res) => {
   }
 });
 
-// Get all services endpoint
-app.get('/api/services', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM services ORDER BY category, id');
-
-    res.json({ success: true, services: result.rows });
-  } catch (error) {
-    console.error('Get all services error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
 // Get all course services (Learn services) endpoint
 app.get('/api/course-services', async (req, res) => {
   try {
@@ -322,6 +638,209 @@ app.get('/api/course-services', async (req, res) => {
     res.json({ success: true, services: result.rows });
   } catch (error) {
     console.error('Get course services error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get course details by ID endpoint
+app.get('/api/course-services/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get course basic info
+    const courseResult = await pool.query('SELECT * FROM Course_Service WHERE id = $1', [id]);
+    
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    const course = courseResult.rows[0];
+
+    // Get course details if they exist
+    const detailsResult = await pool.query(
+      'SELECT * FROM course_details WHERE course_id = $1',
+      [id]
+    );
+
+    // Merge course and details
+    const courseData = {
+      ...course,
+      details: detailsResult.rows[0] || null
+    };
+
+    res.json({ success: true, course: courseData });
+  } catch (error) {
+    console.error('Get course details error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create order endpoint
+app.post('/api/orders', async (req, res) => {
+  try {
+    const { userEmail, serviceId, serviceTitle, orderDetails, totalPrice, deliveryTime, specialInstructions } = req.body;
+
+    if (!userEmail || !serviceId || !serviceTitle) {
+      return res.status(400).json({ error: 'User email, service ID, and service title are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO orders (user_email, service_id, service_title, order_details, total_price, delivery_time, special_instructions, status) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending') 
+       RETURNING id, created_at, status`,
+      [
+        userEmail,
+        serviceId,
+        serviceTitle,
+        JSON.stringify(orderDetails || {}),
+        totalPrice || null,
+        deliveryTime || null,
+        specialInstructions || null
+      ]
+    );
+
+    res.json({ success: true, order: result.rows[0] });
+  } catch (error) {
+    console.error('Create order error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user orders endpoint
+app.get('/api/orders/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM orders WHERE user_email = $1 ORDER BY created_at DESC',
+      [email]
+    );
+
+    res.json({ success: true, orders: result.rows });
+  } catch (error) {
+    console.error('Get orders error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create course enrollment endpoint
+app.post('/api/course-enrollments', async (req, res) => {
+  try {
+    const { userEmail, courseId, courseTitle, totalPrice } = req.body;
+
+    if (!userEmail || !courseId || !courseTitle || !totalPrice) {
+      return res.status(400).json({ error: 'User email, course ID, course title, and total price are required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO course_enrollments (user_email, course_id, course_title, total_price, status) 
+       VALUES ($1, $2, $3, $4, 'enrolled') 
+       RETURNING id, enrollment_date, status`,
+      [userEmail, courseId, courseTitle, totalPrice]
+    );
+
+    res.json({ success: true, enrollment: result.rows[0] });
+  } catch (error) {
+    console.error('Create course enrollment error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user course enrollments endpoint
+app.get('/api/course-enrollments/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM course_enrollments WHERE user_email = $1 ORDER BY created_at DESC',
+      [email]
+    );
+
+    res.json({ success: true, enrollments: result.rows });
+  } catch (error) {
+    console.error('Get course enrollments error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get reviews for an item endpoint
+app.get('/api/reviews/:itemType/:itemId', async (req, res) => {
+  try {
+    const { itemType, itemId } = req.params;
+
+    if (!['course', 'service'].includes(itemType)) {
+      return res.status(400).json({ error: 'Invalid item type. Must be "course" or "service"' });
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM reviews WHERE item_type = $1 AND item_id = $2 ORDER BY created_at DESC',
+      [itemType, itemId]
+    );
+
+    // Calculate average rating
+    const avgRating = result.rows.length > 0
+      ? result.rows.reduce((sum, review) => sum + review.rating, 0) / result.rows.length
+      : 0;
+
+    res.json({
+      success: true,
+      reviews: result.rows,
+      averageRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal place
+      totalReviews: result.rows.length
+    });
+  } catch (error) {
+    console.error('Get reviews error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Submit review endpoint
+app.post('/api/reviews', async (req, res) => {
+  try {
+    const { userEmail, itemId, itemType, rating, comment } = req.body;
+
+    if (!userEmail || !itemId || !itemType || !rating) {
+      return res.status(400).json({ error: 'User email, item ID, item type, and rating are required' });
+    }
+
+    if (!['course', 'service'].includes(itemType)) {
+      return res.status(400).json({ error: 'Invalid item type. Must be "course" or "service"' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    }
+
+    // Check if user already reviewed this item
+    const existingReview = await pool.query(
+      'SELECT id FROM reviews WHERE user_email = $1 AND item_id = $2 AND item_type = $3',
+      [userEmail, itemId, itemType]
+    );
+
+    if (existingReview.rows.length > 0) {
+      // Update existing review
+      const result = await pool.query(
+        `UPDATE reviews 
+         SET rating = $1, comment = $2, updated_at = CURRENT_TIMESTAMP 
+         WHERE user_email = $3 AND item_id = $4 AND item_type = $5 
+         RETURNING *`,
+        [rating, comment || null, userEmail, itemId, itemType]
+      );
+
+      return res.json({ success: true, review: result.rows[0], updated: true });
+    } else {
+      // Create new review
+      const result = await pool.query(
+        `INSERT INTO reviews (user_email, item_id, item_type, rating, comment) 
+         VALUES ($1, $2, $3, $4, $5) 
+         RETURNING *`,
+        [userEmail, itemId, itemType, rating, comment || null]
+      );
+
+      return res.json({ success: true, review: result.rows[0], updated: false });
+    }
+  } catch (error) {
+    console.error('Submit review error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
