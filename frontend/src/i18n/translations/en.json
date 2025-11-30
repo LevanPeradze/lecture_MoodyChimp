@@ -5,7 +5,32 @@
     "contact": "Contact",
     "instagram": "Instagram",
     "savedStuff": "Saved Stuff",
-    "account": "Account"
+    "account": "Account",
+    "searchPlaceholder": "Search courses/services",
+    "searchAriaLabel": "Search for courses and services",
+    "clearSearch": "Clear search"
+  },
+  "sidebar": {
+    "home": "Home",
+    "myOrders": "My Orders",
+    "savedCourses": "Saved Courses",
+    "viewNotes": "My Notes",
+    "notes": {
+      "title": "Notes",
+      "placeholder": "Write your personal notes here...",
+      "save": "Save",
+      "saved": "Saved!",
+      "saveError": "Error saving notes",
+      "myNotes": "My Notes",
+      "noNotes": "You don't have any saved notes yet.",
+      "words": "words",
+      "wordLimitExceeded": "Note exceeds 50 word limit",
+      "emptyNote": "Note cannot be empty",
+      "clearAll": "Clear All Notes",
+      "confirmClear": "Are you sure you want to clear all notes? This action cannot be undone.",
+      "cleared": "All notes cleared!",
+      "clearError": "Error clearing notes"
+    }
   },
   "hero": {
     "label": "creative studio / global",
@@ -35,7 +60,8 @@
       "showing": "Showing",
       "of": "of",
       "courses": "courses",
-      "services": "services"
+      "services": "services",
+      "matching": "matching"
     },
     "questionnaire": {
       "notSure": "not sure?",
@@ -74,6 +100,15 @@
     "editProfile": "Edit Profile",
     "myOrders": "My Orders",
     "myAccount": "My Account",
+    "achievements": "Achievements",
+    "achievementLocked": "Locked - Complete actions to unlock",
+    "deleteAccount": "Delete Account",
+    "deleteConfirmTitle": "Delete Account",
+    "deleteConfirmMessage": "Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently deleted.",
+    "deleteConfirm": "Delete",
+    "cancel": "Cancel",
+    "deleting": "Deleting...",
+    "deleteError": "Error deleting account. Please try again.",
     "email": "Email",
     "password": "Password",
     "logOut": "Log Out",
@@ -165,6 +200,8 @@
     "level": "Level:",
     "revisions": "Revisions:",
     "revision": "revision",
+    "subtotal": "Subtotal:",
+    "achievementDiscount": "Achievement Discount (30%):",
     "total": "Total:",
     "whatHappensNext": "What happens next?",
     "orderReview": "Your order will be reviewed",
@@ -182,6 +219,15 @@
     "errorPlacingOrder": "Error placing order. Please try again.",
     "days": "days",
     "day": "day"
+  },
+  "orderAI": {
+    "title": "AI Recommendation",
+    "placeholder": "Describe what you want to create or need help with...",
+    "getRecommendation": "Get Recommendation",
+    "loading": "Getting recommendation...",
+    "recommendation": "Recommendation:",
+    "emptyDescription": "Please enter a description first.",
+    "error": "Failed to get recommendation. Please try again."
   },
   "bookmarks": {
     "title": "Saved Stuff",

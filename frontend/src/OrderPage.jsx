@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
 import { trackRecentlyViewed } from './DetailsPage';
+import { checkAchievements } from './achievements';
+import OrderAIRecommendation from './OrderAIRecommendation';
 import './OrderPage.css';
 
 const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
@@ -20,6 +22,11 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitMessage, setSubmitMessage] = useState('');
+  const [hasDiscount, setHasDiscount] = useState(false);
+  const [recommendedPackage, setRecommendedPackage] = useState(null);
+  const [aiRecommendation, setAiRecommendation] = useState(null);
+  const [aiRecommendedPackage, setAiRecommendedPackage] = useState(null);
+  const [aiRecommendedTotal, setAiRecommendedTotal] = useState(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -89,7 +96,19 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
     if (serviceId || courseId) {
       fetchService();
     }
-  }, [serviceId, courseId, isLoggedIn, navigate, orderType]);
+
+    // Check for achievement discount
+    if (userEmail && typeof window !== 'undefined') {
+      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.discountAvailable) {
+            setHasDiscount(true);
+          }
+        })
+        .catch(err => console.error('Error checking discount:', err));
+    }
+  }, [serviceId, courseId, isLoggedIn, navigate, orderType, userEmail]);
 
   const calculatePrice = () => {
     if (!service) return 0;
@@ -146,7 +165,14 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
       }
     }
 
-    return Math.round(total);
+    let finalTotal = Math.round(total);
+
+    // Apply 30% discount if available
+    if (hasDiscount && userEmail) {
+      finalTotal = Math.round(finalTotal * 0.7);
+    }
+
+    return finalTotal;
   };
 
   const handleSubmit = async (e) => {
@@ -197,6 +223,31 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
         setSubmitMessage(orderType === 'course' 
           ? t('order.enrollmentSuccess')
           : t('order.orderSuccess'));
+        
+        // Remove discount after successful order (one-time use)
+        if (hasDiscount && userEmail) {
+          fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ discountAvailable: false }),
+          }).then(() => {
+            setHasDiscount(false);
+          }).catch(err => console.error('Error removing discount:', err));
+        }
+        
+        // Check for first order achievement
+        if (userEmail) {
+          checkAchievements(userEmail, 'order').then(achievementNotifications => {
+            if (achievementNotifications.length > 0) {
+              const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+              const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+              localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+              window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+            }
+          });
+        }
       } else {
         setSubmitMessage(data.error || (orderType === 'course' 
           ? t('order.enrollmentFailed')
@@ -229,8 +280,50 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
     );
   }
 
+  if (!service) {
+    return null;
+  }
+
+  // Calculate base total (before discount)
+  const calculateBaseTotal = () => {
+    if (!service) return 0;
+    if (orderType === 'course') return 99;
+    
+    const baseMatch = service.price?.match(/\$?(\d+)/);
+    const basePrice = baseMatch ? parseInt(baseMatch[1], 10) : 0;
+    if (basePrice === 0) return 0;
+
+    let packageMultiplier = 1.0;
+    if (orderForm.packageType === 'standard') {
+      packageMultiplier = 1.4;
+    } else if (orderForm.packageType === 'premium') {
+      packageMultiplier = 1.8;
+    }
+
+    let total = basePrice * packageMultiplier;
+
+    if (orderForm.deliveryTime === 'fast') {
+      total += (basePrice * packageMultiplier) * 0.25;
+    } else if (orderForm.deliveryTime === 'very-fast') {
+      total += (basePrice * packageMultiplier) * 0.50;
+    }
+
+    if (orderForm.packageType !== 'premium') {
+      const additionalRevisions = parseInt(orderForm.revisions) || 0;
+      if (additionalRevisions > 0) {
+        total += basePrice * 0.10 * additionalRevisions;
+      }
+    }
+
+    return Math.round(total);
+  };
+
+  const baseTotalUSD = calculateBaseTotal();
+  const discountAmountUSD = hasDiscount ? Math.round(baseTotalUSD * 0.3) : 0;
   const totalPriceUSD = calculatePrice();
   const totalPrice = convertCurrency(totalPriceUSD, currency);
+  const baseTotal = convertCurrency(baseTotalUSD, currency);
+  const discountAmount = convertCurrency(discountAmountUSD, currency);
 
   return (
     <div className="order-page">
@@ -266,6 +359,18 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                     <span>{t('order.level')}</span>
                     <span>{service.level}</span>
                   </div>
+                )}
+                {hasDiscount && (
+                  <>
+                    <div className="order-summary-item">
+                      <span>{t('order.subtotal')}</span>
+                      <span>{formatPrice(baseTotal, currency, locale)}</span>
+                    </div>
+                    <div className="order-summary-item order-discount">
+                      <span>{t('order.achievementDiscount')}</span>
+                      <span className="discount-amount">-{formatPrice(discountAmount, currency, locale)}</span>
+                    </div>
+                  </>
                 )}
                 <div className="order-summary-divider"></div>
                 <div className="order-summary-total">
@@ -308,7 +413,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                 <div className="order-package-section">
                 <h3 className="order-section-title">{t('order.selectPackage')}</h3>
                 <div className="order-package-options">
-                  <label className={`order-package-option ${orderForm.packageType === 'basic' ? 'selected' : ''}`}>
+                  <label className={`order-package-option ${orderForm.packageType === 'basic' ? 'selected' : ''} ${recommendedPackage === 'basic' ? 'ai-recommended' : ''}`}>
                     <input
                       type="radio"
                       name="packageType"
@@ -322,7 +427,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                     </div>
                   </label>
 
-                  <label className={`order-package-option ${orderForm.packageType === 'standard' ? 'selected' : ''}`}>
+                  <label className={`order-package-option ${orderForm.packageType === 'standard' ? 'selected' : ''} ${recommendedPackage === 'standard' ? 'ai-recommended' : ''}`}>
                     <input
                       type="radio"
                       name="packageType"
@@ -336,7 +441,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                     </div>
                   </label>
 
-                  <label className={`order-package-option ${orderForm.packageType === 'premium' ? 'selected' : ''}`}>
+                  <label className={`order-package-option ${orderForm.packageType === 'premium' ? 'selected' : ''} ${recommendedPackage === 'premium' ? 'ai-recommended' : ''}`}>
                     <input
                       type="radio"
                       name="packageType"
@@ -404,6 +509,26 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                 {isSubmitting ? t('order.placingOrder') : `${t('order.placeOrder')} - ${formatPrice(totalPrice, currency, locale)}`}
               </button>
             </form>
+            
+            {aiRecommendation && (
+              <OrderAIRecommendation 
+                serviceTitle={service.title}
+                serviceCategory={service.category}
+                serviceDescription={service.description}
+                servicePrice={service.price}
+                basePriceUSD={orderType === 'service' ? (() => {
+                  const baseMatch = service.price?.match(/\$?(\d+)/);
+                  return baseMatch ? parseInt(baseMatch[1], 10) : 0;
+                })() : 99}
+                currency={currency}
+                locale={locale}
+                orderType={orderType}
+                showOnlyRecommendation={true}
+                recommendation={aiRecommendation}
+                recommendedPackage={aiRecommendedPackage}
+                recommendedTotal={aiRecommendedTotal}
+              />
+            )}
           </div>
 
           <div className="order-summary-section">
@@ -425,6 +550,18 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                 <span>{t('order.revisions')}</span>
                 <span>{orderForm.revisions} {orderForm.revisions === '1' ? t('order.revision') : t('order.revisionsIncluded')}</span>
               </div>
+              {hasDiscount && (
+                <>
+                  <div className="order-summary-item">
+                    <span>{t('order.subtotal')}</span>
+                    <span>{formatPrice(baseTotal, currency, locale)}</span>
+                  </div>
+                  <div className="order-summary-item order-discount">
+                    <span>{t('order.achievementDiscount')}</span>
+                    <span className="discount-amount">-{formatPrice(discountAmount, currency, locale)}</span>
+                  </div>
+                </>
+              )}
               <div className="order-summary-divider"></div>
               <div className="order-summary-total">
                 <span>{t('order.total')}</span>
@@ -441,6 +578,31 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
                 <li>{t('order.trackProgress')}</li>
               </ul>
             </div>
+
+            <OrderAIRecommendation 
+              serviceTitle={service.title}
+              serviceCategory={service.category}
+              serviceDescription={service.description}
+              servicePrice={service.price}
+              basePriceUSD={orderType === 'service' ? (() => {
+                const baseMatch = service.price?.match(/\$?(\d+)/);
+                return baseMatch ? parseInt(baseMatch[1], 10) : 0;
+              })() : 99}
+              currency={currency}
+              locale={locale}
+              orderType={orderType}
+              onRecommendationChange={(packageType) => {
+                if (packageType && ['basic', 'standard', 'premium'].includes(packageType.toLowerCase())) {
+                  setRecommendedPackage(packageType.toLowerCase());
+                  setOrderForm({ ...orderForm, packageType: packageType.toLowerCase() });
+                }
+              }}
+              onRecommendationGenerated={(rec, pkg, total) => {
+                setAiRecommendation(rec);
+                setAiRecommendedPackage(pkg);
+                setAiRecommendedTotal(total);
+              }}
+            />
           </div>
         </div>
         )}

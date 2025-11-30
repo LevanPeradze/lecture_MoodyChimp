@@ -12,9 +12,11 @@ import PreferencesModal from './PreferencesModal';
 import BananaGame from './BananaGame';
 import NotificationBell from './NotificationBell';
 import RecentlyViewed from './RecentlyViewed';
+import Sidebar from './Sidebar';
 import { trackRecentlyViewed } from './DetailsPage';
 import { useI18n } from './i18n/index.jsx';
 import { convertAndFormatPrice, formatPrice, convertCurrency, parsePrice } from './i18n/currency';
+import { checkAchievements } from './achievements';
 
 const highlightWords = [
   { text: 'creative', className: 'word-brutal' },
@@ -48,6 +50,7 @@ export default function App() {
   const [pendingOrderServiceId, setPendingOrderServiceId] = useState(null);
   const [courseReviews, setCourseReviews] = useState({}); // Store reviews by course ID
   const [hoveredCourseId, setHoveredCourseId] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Filter states
   const [learnFilters, setLearnFilters] = useState(() => {
@@ -58,6 +61,13 @@ export default function App() {
     const saved = localStorage.getItem('lastCreateFiltersUsed');
     return saved ? JSON.parse(saved) : { priceRange: 'all' };
   });
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isServicesSectionVisible, setIsServicesSectionVisible] = useState(false);
+  const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+  const searchBarTimeoutRef = useRef(null);
+  const servicesSectionRef = useRef(null);
+  const lastScrollY = useRef(0);
 
   // Initialize theme from LocalStorage immediately, default to 'dark' if not set
   const [themeMode, setThemeMode] = useState(() => {
@@ -110,6 +120,106 @@ export default function App() {
     localStorage.setItem('lastCreateFiltersUsed', JSON.stringify(createFilters));
   }, [createFilters]);
 
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Don't show header on account/bookmarks/details/order pages
+  const showHeader = !location.pathname.startsWith('/account') &&
+    !location.pathname.startsWith('/bookmarks') &&
+    !location.pathname.startsWith('/details') &&
+    !location.pathname.startsWith('/order');
+
+  // Track scroll direction and services section visibility for smooth search bar animation
+  useEffect(() => {
+    if (!showHeader) {
+      setIsSearchExpanded(false);
+      setIsServicesSectionVisible(false);
+      return;
+    }
+
+    const handleScroll = () => {
+      if (!servicesSectionRef.current || !heroRef.current) return;
+
+      const currentScrollY = window.scrollY;
+      const servicesRect = servicesSectionRef.current.getBoundingClientRect();
+      const heroRect = heroRef.current.getBoundingClientRect();
+
+      // Check if services section is in viewport
+      const servicesInView = servicesRect.top < window.innerHeight && servicesRect.bottom > 0;
+
+      // Check if we've scrolled past the hero section (entering services)
+      const pastHero = heroRect.bottom < window.innerHeight * 0.5;
+
+      // Check if we've scrolled back up past services (returning to hero)
+      const pastServices = servicesRect.bottom < 0;
+
+      // Determine scroll direction
+      const scrollingDown = currentScrollY > lastScrollY.current;
+      const scrollingUp = currentScrollY < lastScrollY.current;
+
+      lastScrollY.current = currentScrollY;
+
+      // Expand search bar when scrolling down into services section
+      if (servicesInView && pastHero && scrollingDown) {
+        // Clear any pending hide timeout
+        if (searchBarTimeoutRef.current) {
+          clearTimeout(searchBarTimeoutRef.current);
+          searchBarTimeoutRef.current = null;
+        }
+        setIsServicesSectionVisible(true);
+        // Small delay to ensure smooth animation start from 0 width
+        requestAnimationFrame(() => {
+          setIsSearchExpanded(true);
+        });
+      }
+      // Collapse search bar when scrolling up past services section
+      else if ((pastServices || !servicesInView) && scrollingUp) {
+        setIsSearchExpanded(false);
+        // Hide completely after animation completes
+        if (searchBarTimeoutRef.current) {
+          clearTimeout(searchBarTimeoutRef.current);
+        }
+        searchBarTimeoutRef.current = setTimeout(() => {
+          setIsServicesSectionVisible(false);
+          searchBarTimeoutRef.current = null;
+        }, 750); // Slightly longer than animation duration
+      }
+      // Also handle case when services section is already visible on load
+      else if (servicesInView && pastHero && !isServicesSectionVisible) {
+        setIsServicesSectionVisible(true);
+        // Delay to prevent snappy appearance - start from 0
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            setIsSearchExpanded(true);
+          });
+        });
+      }
+    };
+
+    // Initial check
+    handleScroll();
+
+    // Throttle scroll events for better performance
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScroll, { passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', throttledScroll);
+      if (searchBarTimeoutRef.current) {
+        clearTimeout(searchBarTimeoutRef.current);
+      }
+    };
+  }, [showHeader, location.pathname, isSearchExpanded, isServicesSectionVisible]);
 
   // Check if this is first visit
   useEffect(() => {
@@ -252,32 +362,130 @@ export default function App() {
     fetchUserData();
   }, [userEmail]);
 
-  // Load bookmarked courses from LocalStorage
+  // Load bookmarked courses from database when user logs in, fallback to localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('bookmarkedCourses');
-    if (saved) {
-      try {
-        setBookmarkedCourses(JSON.parse(saved));
-      } catch (err) {
-        console.error('Error loading bookmarked courses:', err);
+    const loadBookmarks = async () => {
+      if (userEmail) {
+        // Load from database
+        try {
+          const response = await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.bookmarks) {
+              setBookmarkedCourses(data.bookmarks);
+              // Also save to localStorage as backup
+              localStorage.setItem('bookmarkedCourses', JSON.stringify(data.bookmarks));
+              return;
+            }
+          }
+        } catch (err) {
+          console.error('Error loading bookmarks from database:', err);
+        }
       }
-    }
-  }, []);
 
-  // Save bookmarked courses to LocalStorage whenever it changes
+      // Fallback to localStorage if not logged in or database fetch failed
+      const saved = localStorage.getItem('bookmarkedCourses');
+      if (saved) {
+        try {
+          setBookmarkedCourses(JSON.parse(saved));
+        } catch (err) {
+          console.error('Error loading bookmarked courses from localStorage:', err);
+        }
+      }
+    };
+
+    loadBookmarks();
+  }, [userEmail]);
+
+  // Save bookmarked courses to LocalStorage whenever it changes (as backup)
   useEffect(() => {
     localStorage.setItem('bookmarkedCourses', JSON.stringify(bookmarkedCourses));
   }, [bookmarkedCourses]);
 
   // Toggle bookmark for a course
-  const toggleBookmark = (courseId) => {
+  const toggleBookmark = async (courseId) => {
+    const isAdding = !bookmarkedCourses.includes(courseId);
+
+    // Update local state immediately for responsive UI
     setBookmarkedCourses(prev => {
-      if (prev.includes(courseId)) {
-        return prev.filter(id => id !== courseId);
-      } else {
-        return [...prev, courseId];
-      }
+      return isAdding
+        ? [...prev, courseId]
+        : prev.filter(id => id !== courseId);
     });
+
+    // Sync with database if user is logged in
+    if (userEmail) {
+      try {
+        if (isAdding) {
+          // Add bookmark to database
+          await fetch('http://localhost:4000/api/bookmarks', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userEmail,
+              courseId: parseInt(courseId, 10)
+            }),
+          });
+
+          // Get updated count from database for achievement checking
+          const countResponse = await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}/count`);
+          if (countResponse.ok) {
+            const countData = await countResponse.json();
+            const bookmarkCount = countData.count || 0;
+
+            // Check achievements with database count
+            checkAchievements(userEmail, 'bookmark', { count: bookmarkCount }).then(achievementNotifications => {
+              if (achievementNotifications.length > 0) {
+                // Add achievement notifications to notification system
+                const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+                localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                // Trigger a custom event to notify NotificationBell
+                window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+              }
+            });
+
+            // Also check for bookmark-count trigger (for three-bookmarks achievement)
+            checkAchievements(userEmail, 'bookmark-count', { count: bookmarkCount }).then(achievementNotifications => {
+              if (achievementNotifications.length > 0) {
+                const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+                localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+              }
+            });
+          }
+        } else {
+          // Remove bookmark from database
+          await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}/${courseId}`, {
+            method: 'DELETE',
+          });
+        }
+      } catch (err) {
+        console.error('Error syncing bookmark with database:', err);
+        // Revert local state on error
+        setBookmarkedCourses(prev => {
+          return isAdding
+            ? prev.filter(id => id !== courseId)
+            : [...prev, courseId];
+        });
+      }
+    } else {
+      // If not logged in, check achievements with local count (fallback)
+      if (isAdding) {
+        const newBookmarks = [...bookmarkedCourses, courseId];
+        checkAchievements(userEmail, 'bookmark', { count: newBookmarks.length }).then(achievementNotifications => {
+          if (achievementNotifications.length > 0) {
+            const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+            const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+            localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+            window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+          }
+        });
+      }
+    }
   };
 
   // Helper function to parse price from string (e.g., "$100" -> 100)
@@ -374,11 +582,110 @@ export default function App() {
     };
   };
 
+  // Search function - searches in title, description, category, and level
+  const matchesSearch = (item, query) => {
+    if (!query || query.trim() === '') return true;
+    const searchTerm = query.toLowerCase().trim();
+    const title = (item.title || '').toLowerCase();
+    const description = (item.description || '').toLowerCase();
+    const category = (item.category || '').toLowerCase();
+    const level = (item.level || '').toLowerCase();
+
+    // Also check details if available (for services)
+    const detailsDescription = (item.details?.description || '').toLowerCase();
+
+    return title.includes(searchTerm) ||
+      description.includes(searchTerm) ||
+      category.includes(searchTerm) ||
+      level.includes(searchTerm) ||
+      detailsDescription.includes(searchTerm);
+  };
+
+  // Check if search results exist in Learn section
+  const getSearchResultsInLearn = () => {
+    if (!searchQuery || searchQuery.trim() === '') return [];
+    return learnServices.filter(service => matchesSearch(service, searchQuery));
+  };
+
+  // Check if search results exist in Create section
+  const getSearchResultsInCreate = () => {
+    if (!searchQuery || searchQuery.trim() === '') return [];
+    const allCreateServices = Object.values(createServices).flat();
+    return allCreateServices.filter(service => matchesSearch(service, searchQuery));
+  };
+
+  // Auto-switch section if search result is in different section
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim() === '') return;
+
+    const learnResults = getSearchResultsInLearn();
+    const createResults = getSearchResultsInCreate();
+
+    // If user is on Learn but search only finds Create results, switch to Create
+    if (selectedMainCategory === 'Learn' && learnResults.length === 0 && createResults.length > 0) {
+      setSelectedMainCategory('Create');
+      // Find the category of the first result
+      const firstResult = createResults[0];
+      const resultCategory = Object.keys(createServices).find(cat =>
+        createServices[cat].some(s => s.id === firstResult.id || s.title === firstResult.title)
+      );
+      if (resultCategory) {
+        setSelectedCreateCategory(resultCategory);
+      }
+      // Scroll to services section if not visible
+      if (servicesSectionRef.current && !isServicesSectionVisible) {
+        servicesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+    // If user is on Create but search only finds Learn results, switch to Learn
+    else if (selectedMainCategory === 'Create' && createResults.length === 0 && learnResults.length > 0) {
+      setSelectedMainCategory('Learn');
+      setSelectedCreateCategory(null);
+      // Scroll to services section if not visible
+      if (servicesSectionRef.current && !isServicesSectionVisible) {
+        servicesSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  }, [searchQuery, selectedMainCategory, learnServices, createServices]);
+
+  // Handle Enter key in search - redirect if single result
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter' && searchQuery.trim()) {
+      const learnResults = getSearchResultsInLearn();
+      const createResults = getSearchResultsInCreate();
+      const allResults = [...learnResults, ...createResults];
+
+      if (allResults.length === 1) {
+        const result = allResults[0];
+        // Determine if it's a course or service
+        const isCourse = learnResults.length === 1;
+        const itemId = result.id || result.title;
+
+        if (isCourse) {
+          navigate(`/details/course/${itemId}`);
+        } else {
+          // Create services go directly to order page
+          if (isLoggedIn) {
+            navigate(`/order/${itemId}`);
+          } else {
+            setPendingOrderServiceId(itemId);
+            setShowLoginModal(true);
+          }
+        }
+        setSearchQuery(''); // Clear search after navigation
+      }
+    }
+  };
+
   // Filter Learn services
   const getFilteredLearnServices = () => {
     const thresholds = getPriceThresholds();
 
     return learnServices.filter(service => {
+      // Apply search filter first
+      if (!matchesSearch(service, searchQuery)) {
+        return false;
+      }
       // Level filter - check if the selected level appears in the course's level string
       if (learnFilters.level !== 'all') {
         const courseLevel = service.level?.toLowerCase() || '';
@@ -440,6 +747,10 @@ export default function App() {
     const thresholds = getPriceThresholds();
 
     return services.filter(service => {
+      // Apply search filter first
+      if (!matchesSearch(service, searchQuery)) {
+        return false;
+      }
       // Price range filter
       if (createFilters.priceRange !== 'all') {
         const priceUSD = parsePrice(service.price); // Price is in USD
@@ -470,10 +781,12 @@ export default function App() {
   // Reset filters
   const resetLearnFilters = () => {
     setLearnFilters({ level: 'all', priceRange: 'all' });
+    setSearchQuery(''); // Also clear search when resetting filters
   };
 
   const resetCreateFilters = () => {
     setCreateFilters({ priceRange: 'all' });
+    setSearchQuery(''); // Also clear search when resetting filters
   };
 
   // Toggle theme between dark and light
@@ -508,15 +821,6 @@ export default function App() {
       }
     }
   };
-
-  const location = useLocation();
-  const navigate = useNavigate();
-
-  // Don't show header on account/bookmarks/details/order pages
-  const showHeader = !location.pathname.startsWith('/account') &&
-    !location.pathname.startsWith('/bookmarks') &&
-    !location.pathname.startsWith('/details') &&
-    !location.pathname.startsWith('/order');
 
   return (
     <Routes>
@@ -569,6 +873,15 @@ export default function App() {
         <div className="moodychimp">
           {showHeader && (
             <header className="mc-header">
+              <button
+                className={`hamburger-btn ${sidebarOpen ? 'active' : ''}`}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                aria-label="Toggle sidebar"
+              >
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+                <span className="hamburger-line"></span>
+              </button>
               <div className="header-logo-container">
                 <div className="logo">MoodyChimp</div>
               </div>
@@ -583,6 +896,31 @@ export default function App() {
                 <a href="https://instagram.com" target="_blank" rel="noreferrer">
                   {t('header.instagram')}
                 </a>
+                {isServicesSectionVisible && (
+                  <div className={`search-container ${isSearchExpanded ? 'expanded' : 'collapsed'}`}>
+                    <input
+                      type="text"
+                      className="search-input"
+                      placeholder={t('header.searchPlaceholder')}
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={handleSearchKeyDown}
+                      onFocus={() => setIsSearchFocused(true)}
+                      onBlur={() => setIsSearchFocused(false)}
+                      aria-label={t('header.searchAriaLabel')}
+                    />
+                    <span className="search-icon">🔍</span>
+                    {searchQuery && (
+                      <button
+                        className="search-clear-btn"
+                        onClick={() => setSearchQuery('')}
+                        aria-label={t('header.clearSearch')}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                )}
                 <button
                   className="preferences-toggle-btn"
                   onClick={() => setShowPreferencesModal(true)}
@@ -598,15 +936,6 @@ export default function App() {
                 >
                   {themeMode === 'dark' ? '☀️' : '🌙'}
                 </button>
-                {bookmarkedCourses.length > 0 && (
-                  <button
-                    className="saved-stuff-btn"
-                    onClick={() => navigate('/bookmarks')}
-                    aria-label={t('header.savedStuff')}
-                  >
-                    {t('header.savedStuff')} ({bookmarkedCourses.length})
-                  </button>
-                )}
                 <NotificationBell
                   userEmail={userEmail}
                   isLoggedIn={isLoggedIn}
@@ -615,7 +944,10 @@ export default function App() {
                 {isLoggedIn && (
                   <button
                     className="account-btn"
-                    onClick={() => navigate('/account')}
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'instant' });
+                      navigate('/account');
+                    }}
                     aria-label={t('header.account')}
                   >
                     {userAvatar ? (
@@ -628,6 +960,14 @@ export default function App() {
               </nav>
             </header>
           )}
+
+          <Sidebar
+            isOpen={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+            bookmarkedCoursesCount={bookmarkedCourses.length}
+            isLoggedIn={isLoggedIn}
+            userEmail={userEmail}
+          />
 
           <main>
             <section className="hero" id="top" ref={heroRef}>
@@ -668,7 +1008,7 @@ export default function App() {
               <RecentlyViewed />
             </section>
 
-            <section id="services" className="services">
+            <section id="services" className="services" ref={servicesSectionRef}>
               <h2>{t('services.title')}</h2>
 
               <div className="services-main-categories">
@@ -745,7 +1085,15 @@ export default function App() {
                           </div>
                         </div>
                         <div className="filters-results">
-                          {t('services.filters.showing')} {getFilteredLearnServices().length} {t('services.filters.of')} {learnServices.length} {t('services.filters.courses')}
+                          {searchQuery ? (
+                            <>
+                              {t('services.filters.showing')} {getFilteredLearnServices().length} {t('services.filters.of')} {learnServices.length} {t('services.filters.courses')} {t('services.filters.matching')} "{searchQuery}"
+                            </>
+                          ) : (
+                            <>
+                              {t('services.filters.showing')} {getFilteredLearnServices().length} {t('services.filters.of')} {learnServices.length} {t('services.filters.courses')}
+                            </>
+                          )}
                         </div>
                       </div>
 
@@ -843,7 +1191,7 @@ export default function App() {
                       </div>
 
                       {selectedCreateCategory && (
-                        <>
+                        <div className="create-services-container">
                           {/* Filters Section */}
                           <div className="filters-panel">
                             <div className="filters-header">
@@ -876,7 +1224,15 @@ export default function App() {
                               </div>
                             </div>
                             <div className="filters-results">
-                              {t('services.filters.showing')} {getFilteredCreateServices().length} {t('services.filters.of')} {createServices[selectedCreateCategory]?.length || 0} {t('services.filters.services')}
+                              {searchQuery ? (
+                                <>
+                                  {t('services.filters.showing')} {getFilteredCreateServices().length} {t('services.filters.of')} {createServices[selectedCreateCategory]?.length || 0} {t('services.filters.services')} {t('services.filters.matching')} "{searchQuery}"
+                                </>
+                              ) : (
+                                <>
+                                  {t('services.filters.showing')} {getFilteredCreateServices().length} {t('services.filters.of')} {createServices[selectedCreateCategory]?.length || 0} {t('services.filters.services')}
+                                </>
+                              )}
                             </div>
                           </div>
 
@@ -916,7 +1272,7 @@ export default function App() {
                               </div>
                             ))}
                           </div>
-                        </>
+                        </div>
                       )}
                     </>
                   )}
@@ -982,9 +1338,84 @@ export default function App() {
                     setColorTheme(profileData.user.color_theme);
                     localStorage.setItem('colorTheme', profileData.user.color_theme);
                   }
+
+                  // Check for profile completion achievement
+                  if (profileData.user.username && profileData.user.avatar_url && profileData.user.title) {
+                    checkAchievements(email, 'profile').then(achievementNotifications => {
+                      if (achievementNotifications.length > 0) {
+                        const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                        const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+                        localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                        window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+                      }
+                    });
+                  }
                 }
               } catch (err) {
                 console.error('Error fetching user theme:', err);
+              }
+
+              // Check for first login achievement
+              checkAchievements(email, 'login').then(achievementNotifications => {
+                if (achievementNotifications.length > 0) {
+                  const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                  const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+                  localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                  window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+                }
+              });
+
+              // Check for discount availability and notify user
+              fetch(`http://localhost:4000/api/user/${encodeURIComponent(email)}/achievements`)
+                .then(res => res.json())
+                .then(data => {
+                  if (data.success && data.discountAvailable && !data.discountGranted) {
+                    const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                    const discountNotification = {
+                      id: `discount-reminder-${email}`,
+                      message: '🎉 You have a 30% discount available! Complete all achievements to unlock it on your next order!',
+                      read: false,
+                      timestamp: new Date().toISOString(),
+                      type: 'achievement'
+                    };
+                    const notificationExists = existingNotifications.some(n => n.id === discountNotification.id);
+                    if (!notificationExists) {
+                      const updatedNotifications = [...existingNotifications, discountNotification];
+                      localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                      window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+                    }
+                  }
+                })
+                .catch(err => console.error('Error checking discount:', err));
+
+              // Add one-time notification about more achievements to unlock
+              const hasSeenAchievementHint = localStorage.getItem(`achievementHintSeen:${email}`);
+              if (!hasSeenAchievementHint) {
+                getUnlockedAchievements(email).then(unlocked => {
+                  const totalAchievements = Object.keys(ACHIEVEMENTS).length;
+                  const unlockedCount = Object.keys(unlocked).filter(key => unlocked[key] === true).length;
+                  const remainingCount = totalAchievements - unlockedCount;
+
+                  if (remainingCount > 0) {
+                    const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                    const hintNotification = {
+                      id: `achievement-hint-${email}`,
+                      message: `🏆 You have ${remainingCount} more achievement${remainingCount > 1 ? 's' : ''} to unlock!`,
+                      read: false,
+                      timestamp: new Date().toISOString(),
+                      type: 'achievement'
+                    };
+
+                    // Check if hint notification already exists
+                    const hintExists = existingNotifications.some(n => n.id === hintNotification.id);
+                    if (!hintExists) {
+                      const updatedNotifications = [...existingNotifications, hintNotification];
+                      localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                      localStorage.setItem(`achievementHintSeen:${email}`, 'true');
+                      window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+                    }
+                  }
+                });
               }
 
               // If user was trying to order a service, redirect to order page
@@ -1004,6 +1435,18 @@ export default function App() {
                 setUserOptimalCourse(course);
                 setShowQuestionnaire(false);
                 setShowQuestionnaireResult(true);
+
+                // Check for quiz completion achievement
+                if (userEmail) {
+                  checkAchievements(userEmail, 'quiz').then(achievementNotifications => {
+                    if (achievementNotifications.length > 0) {
+                      const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+                      const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+                      localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+                      window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+                    }
+                  });
+                }
               }}
               onClose={() => setShowQuestionnaire(false)}
             />
@@ -1024,7 +1467,7 @@ export default function App() {
             isOpen={showPreferencesModal}
             onClose={() => setShowPreferencesModal(false)}
           />
-          <BananaGame />
+          <BananaGame userEmail={userEmail} />
         </div>
       } />
     </Routes>

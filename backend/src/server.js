@@ -1,4 +1,11 @@
 require('dotenv').config();
+// Also load .env.local if it exists (in backend directory)
+const path = require('path');
+const fs = require('fs');
+const envLocalPath = path.join(__dirname, '..', '.env.local');
+if (fs.existsSync(envLocalPath)) {
+  require('dotenv').config({ path: envLocalPath });
+}
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
@@ -238,6 +245,17 @@ pool.query(`
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   )
 `).catch(err => console.error('Error creating user_notes table:', err));
+
+// Initialize saved_courses table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS saved_courses (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    course_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_email, course_id)
+  )
+`).catch(err => console.error('Error creating saved_courses table:', err));
 
 // Insert default services if they don't exist
 const insertDefaultServices = async () => {
@@ -1335,109 +1353,461 @@ app.post('/api/user/:email/banana-clicks', async (req, res) => {
   }
 });
 
-// Google Gemini API endpoint for order recommendations
-app.post('/api/chatgpt/recommend', async (req, res) => {
+// Add bookmark endpoint
+app.post('/api/bookmarks', async (req, res) => {
   try {
-    const { userRequest, serviceCategory } = req.body;
+    const { userEmail, courseId } = req.body;
 
-    if (!userRequest) {
-      return res.status(400).json({ error: 'User request is required' });
+    if (!userEmail || !courseId) {
+      return res.status(400).json({ error: 'User email and course ID are required' });
     }
 
-    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyDT_PybNa_R9yg7kclDesup-9WTlaOmAEE';
-
-    if (!GOOGLE_API_KEY || GOOGLE_API_KEY.length < 20) {
-      console.error('Invalid Google API key');
-      return res.status(500).json({ error: 'API key not configured properly' });
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    const prompt = `You are a helpful assistant for a creative services platform called MoodyChimp. A user wants to order a custom creative service. 
+    // Insert bookmark (UNIQUE constraint will prevent duplicates)
+    const result = await pool.query(
+      `INSERT INTO saved_courses (user_email, course_id) 
+       VALUES ($1, $2) 
+       ON CONFLICT (user_email, course_id) DO NOTHING
+       RETURNING id, course_id, created_at`,
+      [userEmail, courseId]
+    );
 
-User's request: "${userRequest}"
-${serviceCategory ? `Service category: ${serviceCategory}` : ''}
-
-Based on the user's request, recommend what type of service package they should order (Basic, Standard, or Premium) and explain why. Also suggest any important details they should include in their special instructions.
-
-Keep your response concise (2-3 sentences) and helpful. Format your response as plain text without markdown.`;
-
-    // Check if fetch is available
-    if (typeof fetch === 'undefined') {
-      console.error('fetch is not available. Node.js version might be too old or fetch needs to be imported.');
-      return res.status(500).json({ error: 'Server configuration error: fetch not available' });
+    if (result.rows.length === 0) {
+      // Bookmark already exists
+      return res.json({ success: true, message: 'Bookmark already exists', alreadyExists: true });
     }
 
-    // Try using Google's Generative AI API with different possible endpoints
-    // The API key format suggests it might be for a different Google service
-    // Let's try the AI Studio endpoint format
-    let response;
-    let recommendation = null;
+    res.json({ success: true, bookmark: result.rows[0] });
+  } catch (error) {
+    console.error('Add bookmark error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
-    // Try different possible endpoints and models
-    const endpoints = [
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_API_KEY}`,
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${GOOGLE_API_KEY}`,
-      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GOOGLE_API_KEY}`,
-      `https://ai.google.dev/api/generate?key=${GOOGLE_API_KEY}`
-    ];
+// Remove bookmark endpoint
+app.delete('/api/bookmarks/:userEmail/:courseId', async (req, res) => {
+  try {
+    const { userEmail, courseId } = req.params;
 
-    let lastError = null;
+    if (!userEmail || !courseId) {
+      return res.status(400).json({ error: 'User email and course ID are required' });
+    }
 
-    for (const endpoint of endpoints) {
-      try {
-        console.log('Trying endpoint:', endpoint.split('?')[0]);
-        response = await fetch(endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            contents: [{
-              parts: [{
-                text: prompt
-              }]
-            }],
-            generationConfig: {
-              maxOutputTokens: 200,
-              temperature: 0.7
-            }
-          })
-        });
+    const result = await pool.query(
+      'DELETE FROM saved_courses WHERE user_email = $1 AND course_id = $2 RETURNING id',
+      [userEmail, courseId]
+    );
 
-        if (response.ok) {
-          const data = await response.json();
-          recommendation = data.candidates?.[0]?.content?.parts?.[0]?.text ||
-            data.text ||
-            data.response ||
-            'Unable to generate recommendation.';
-          console.log('Success with endpoint:', endpoint.split('?')[0]);
-          break;
-        } else {
-          const errorText = await response.text();
-          lastError = { status: response.status, text: errorText };
-          console.log('Failed with endpoint:', endpoint.split('?')[0], response.status);
-        }
-      } catch (err) {
-        lastError = { error: err.message };
-        console.log('Error with endpoint:', endpoint.split('?')[0], err.message);
-        continue;
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Bookmark not found' });
+    }
+
+    res.json({ success: true, message: 'Bookmark removed successfully' });
+  } catch (error) {
+    console.error('Remove bookmark error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user bookmarks endpoint
+app.get('/api/bookmarks/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'User email is required' });
+    }
+
+    const result = await pool.query(
+      'SELECT course_id FROM saved_courses WHERE user_email = $1 ORDER BY created_at DESC',
+      [userEmail]
+    );
+
+    const bookmarks = result.rows.map(row => row.course_id);
+
+    res.json({ success: true, bookmarks });
+  } catch (error) {
+    console.error('Get bookmarks error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user bookmark count endpoint (for achievements)
+app.get('/api/bookmarks/:userEmail/count', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'User email is required' });
+    }
+
+    const result = await pool.query(
+      'SELECT COUNT(*) as count FROM saved_courses WHERE user_email = $1',
+      [userEmail]
+    );
+
+    const count = parseInt(result.rows[0].count, 10) || 0;
+
+    res.json({ success: true, count });
+  } catch (error) {
+    console.error('Get bookmark count error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// OpenRouter AI recommendation endpoint
+app.post('/api/recommend-order', async (req, res) => {
+  try {
+    const { description, serviceTitle, serviceCategory, serviceDescription, servicePrice, basePriceUSD, currency, orderType } = req.body;
+
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: 'Description is required' });
+    }
+
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+
+    if (!OPENROUTER_API_KEY) {
+      console.error('OpenRouter API key not configured');
+      console.error('Available env vars:', Object.keys(process.env).filter(k => k.includes('OPENROUTER')));
+      return res.status(500).json({ error: 'API key not configured. Please check backend/.env.local file.' });
+    }
+
+    // Parse base price from servicePrice string if basePriceUSD is not provided
+    let basePrice = basePriceUSD || 0;
+    if (basePrice === 0 && servicePrice) {
+      const priceMatch = servicePrice.match(/\$?(\d+)/);
+      if (priceMatch) {
+        basePrice = parseInt(priceMatch[1], 10);
       }
     }
 
-    if (!recommendation) {
-      // If all endpoints failed, return a helpful error
-      console.error('All API endpoints failed. Last error:', lastError);
-      return res.status(500).json({
+    // Calculate pricing for each package - EXACT SAME LOGIC AS FRONTEND
+    const calculatePackagePrice = (packageType, deliveryTime = 'standard', revisions = 0) => {
+      if (basePrice === 0) return 0;
+
+      // Step 1: Apply package multiplier
+      let packageMultiplier = 1.0;
+      if (packageType === 'standard') {
+        packageMultiplier = 1.4; // 40% premium
+      } else if (packageType === 'premium') {
+        packageMultiplier = 1.8; // 80% premium
+      }
+      // Basic stays at 1.0 (no premium)
+
+      let total = basePrice * packageMultiplier;
+
+      // Step 2: Add delivery time premium (calculated on base * multiplier)
+      if (deliveryTime === 'fast') {
+        total += (basePrice * packageMultiplier) * 0.25; // +25% premium
+      } else if (deliveryTime === 'very-fast') {
+        total += (basePrice * packageMultiplier) * 0.50; // +50% premium
+      }
+      // Standard delivery (5-7 days) adds nothing
+
+      // Step 3: Add revision costs (only for Basic and Standard, Premium has unlimited)
+      if (packageType !== 'premium') {
+        const additionalRevisions = parseInt(revisions) || 0;
+        if (additionalRevisions > 0) {
+          // Each revision costs 10% of BASE PRICE (not multiplied price)
+          total += basePrice * 0.10 * additionalRevisions;
+        }
+      }
+      // Premium package includes unlimited revisions, so no extra cost
+
+      return Math.round(total);
+    };
+
+    // Currency conversion rates (same as frontend)
+    const EXCHANGE_RATES = {
+      USD: 1.0,
+      EUR: 0.92,
+      GEL: 2.65
+    };
+
+    const convertCurrency = (usdAmount, targetCurrency) => {
+      const rate = EXCHANGE_RATES[targetCurrency] || EXCHANGE_RATES.USD;
+      const converted = usdAmount * rate;
+      if (targetCurrency === 'GEL') {
+        return Math.round(converted);
+      }
+      return Math.round(converted * 100) / 100;
+    };
+
+    const formatPrice = (amount, targetCurrency) => {
+      const symbols = { USD: '$', EUR: '€', GEL: '₾' };
+      const symbol = symbols[targetCurrency] || '$';
+      const formatted = targetCurrency === 'GEL'
+        ? Math.round(amount).toString()
+        : amount.toFixed(2);
+      return `${symbol}${formatted}`;
+    };
+
+    // Build comprehensive system prompt with service context
+    const basePriceFormatted = formatPrice(convertCurrency(basePrice, currency || 'USD'), currency || 'USD');
+    const basicPrice = formatPrice(convertCurrency(calculatePackagePrice('basic', 'standard', 0), currency || 'USD'), currency || 'USD');
+    const standardPrice = formatPrice(convertCurrency(calculatePackagePrice('standard', 'standard', 0), currency || 'USD'), currency || 'USD');
+    const premiumPrice = formatPrice(convertCurrency(calculatePackagePrice('premium', 'standard', 0), currency || 'USD'), currency || 'USD');
+
+    let systemPrompt = `You are an expert order package recommender for MoodyChimp, a creative services platform. Your job is to recommend the best package type (Basic, Standard, or Premium) based on the user's needs.
+
+IMPORTANT: The pricing structure below applies to ALL services on the platform. Use these exact formulas:
+
+PRICING FORMULA (applies to every service):
+1. Start with Base Price: ${basePriceFormatted}
+2. Apply Package Multiplier:
+   - Basic: 1.0x (no premium) = ${basicPrice}
+   - Standard: 1.4x (40% premium) = ${standardPrice}
+   - Premium: 1.8x (80% premium) = ${premiumPrice}
+3. Add Delivery Premium (calculated on the package price):
+   - Standard (5-7 days): +0% (included)
+   - Fast (3-5 days): +25% of package price
+   - Very Fast (1-3 days): +50% of package price
+4. Add Revision Costs (only for Basic/Standard, Premium has unlimited):
+   - Each additional revision: +10% of BASE PRICE (not package price)
+   - Basic includes 0 revisions
+   - Standard includes 1 revision
+   - Premium includes unlimited revisions
+
+EXAMPLE CALCULATIONS:
+- Basic + Standard delivery + 0 revisions = ${basicPrice}
+- Standard + Standard delivery + 0 revisions = ${standardPrice}
+- Premium + Standard delivery + 0 revisions = ${premiumPrice}
+- Basic + Fast delivery + 2 revisions = ${formatPrice(convertCurrency(calculatePackagePrice('basic', 'fast', 2), currency || 'USD'), currency || 'USD')}
+- Standard + Very Fast delivery + 1 revision = ${formatPrice(convertCurrency(calculatePackagePrice('standard', 'very-fast', 1), currency || 'USD'), currency || 'USD')}
+
+PACKAGE FEATURES:
+- Basic: Standard delivery (5-7 days), 0 revisions included, best for simple projects
+- Standard: Faster delivery (3-5 days), 1 revision included, best for moderate customization
+- Premium: Fastest delivery (1-3 days), unlimited revisions, best for complex projects
+
+YOUR TASK:
+1. Analyze the user's request carefully
+2. Recommend ONE package type (Basic, Standard, or Premium) - ONLY ONE
+3. Suggest delivery time if urgent (otherwise recommend standard)
+4. Suggest revisions if needed (only for Basic/Standard, Premium has unlimited)
+5. Format your response EXACTLY like this (DO NOT include price in your response):
+
+RECOMMENDED: [Basic/Standard/Premium]
+
+• Select the [Package Name] package
+• Choose [Standard/Fast/Very Fast] delivery ([X-Y] days)
+• Add [X] additional revision(s) if needed (ONLY for Basic/Standard - Premium has unlimited revisions included, so NEVER suggest additional revisions for Premium)
+• This package fits because: [brief explanation]
+
+CRITICAL: If recommending Premium, do NOT include "Add X additional revision" in your response. Premium already includes unlimited revisions.
+
+IMPORTANT: 
+- Recommend ONLY ONE package - do not mention multiple packages
+- DO NOT include price calculations in your response - the system will calculate it
+- Keep explanations simple and clear
+- This pricing applies to ALL services on the platform
+- Start your response with "RECOMMENDED:" followed by the package name only`;
+
+    // Service classification mapping - what each category handles
+    const serviceClassifications = {
+      'Storyboards': {
+        keywords: ['storyboard', 'story board', 'animatic', 'concept board', 'visual planning', 'narrative planning', 'scene planning', 'sequence', 'shot planning'],
+        description: 'Visual planning and storyboarding for narratives, animations, and video projects'
+      },
+      'Book design': {
+        keywords: ['book cover', 'book design', 'cover design', 'interior layout', 'book layout', 'typography', 'publishing', 'children\'s book', 'childrens book', 'book illustration', 'page design'],
+        description: 'Book cover design, interior layouts, and complete book design packages'
+      },
+      'Character design': {
+        keywords: ['character design', 'character sheet', 'character concept', 'character turnaround', 'character reference', 'character creation', 'character art', 'character illustration'],
+        description: 'Character design, concept art, and character reference sheets'
+      },
+      'Game Design': {
+        keywords: ['game design', 'game ui', 'game ux', 'ui/ux', 'user interface', 'user experience', 'game interface', 'level design', 'game mechanics', 'game concept', 'game development', 'game prototyping'],
+        description: 'Game design, UI/UX for games, level design, and game development documentation'
+      }
+    };
+
+    // Add service context and classification
+    let currentServiceType = null;
+    if (serviceCategory) {
+      currentServiceType = serviceCategory;
+      systemPrompt += `\n\nCURRENT SERVICE CONTEXT:`;
+      systemPrompt += `\nYou are on the order page for: ${serviceTitle || 'Unknown Service'}`;
+      systemPrompt += `\nService Category: ${serviceCategory}`;
+      if (serviceDescription) {
+        systemPrompt += `\nService Description: ${serviceDescription.substring(0, 200)}${serviceDescription.length > 200 ? '...' : ''}`;
+      }
+      systemPrompt += `\nBase Price: ${servicePrice || basePriceFormatted}`;
+
+      // Add service classification info
+      systemPrompt += `\n\nAVAILABLE SERVICE CATEGORIES:`;
+      Object.entries(serviceClassifications).forEach(([category, info]) => {
+        systemPrompt += `\n- ${category}: ${info.description}`;
+        systemPrompt += `\n  Keywords: ${info.keywords.join(', ')}`;
+      });
+
+      systemPrompt += `\n\nCRITICAL REQUEST VALIDATION LOGIC:`;
+      systemPrompt += `\nYou are currently on the order page for: ${serviceCategory}`;
+      systemPrompt += `\n\nFirst, determine if the request is related to ANY service on this platform:`;
+      systemPrompt += `\n1. If the request is COMPLETELY UNRELATED to any service (e.g., "I want pizza", "How's the weather", "Tell me a joke", "What time is it", "I need a car", "I want to buy shoes"), respond with:`;
+      systemPrompt += `\n   "UNRELATED REQUEST: This request is not related to any service offered on MoodyChimp. Please provide a request related to creative services such as storyboards, book design, character design, or game design."`;
+      systemPrompt += `\n\n2. If the request relates to a DIFFERENT service category (not ${serviceCategory}), respond with:`;
+      systemPrompt += `\n   "REDIRECT: This request is best suited for [Category Name] services. Please navigate to the [Category Name] section in the Create services to place your order."`;
+      systemPrompt += `\n\n3. If the request matches ${serviceCategory}, provide package recommendation`;
+      systemPrompt += `\n\nOnly recommend a package if the request clearly matches ${serviceCategory}.`;
+    }
+
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'mysite.com',
+          'X-Title': 'MoodyChimp AI Recommender'
+        },
+        body: JSON.stringify({
+          model: 'openai/gpt-4o-mini',
+          messages: [
+            {
+              role: 'system',
+              content: systemPrompt
+            },
+            {
+              role: 'user',
+              content: `User's request: "${description.trim()}"\n\n${currentServiceType ? `Current service category: ${currentServiceType}\n\nFirst, check if this request matches the current service category. If NOT, provide a redirect message. If it DOES match, recommend the best package type (Basic, Standard, or Premium) with specific delivery time and revisions.` : 'Recommend the best package type (Basic, Standard, or Premium) with specific delivery time and revisions.'}\n\nUse the exact pricing formula provided. Format with bullet points as specified.`
+            }
+          ],
+          max_tokens: 300,
+          temperature: 0.5
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenRouter API error:', response.status, errorText);
+        return res.status(response.status).json({
+          error: 'Failed to get AI recommendation',
+          details: errorText
+        });
+      }
+
+      const data = await response.json();
+      let recommendation = data.choices?.[0]?.message?.content ||
+        'Unable to generate recommendation.';
+
+      // Check if this is a redirect or unrelated request response
+      const recLower = recommendation.toLowerCase();
+      const isUnrelated = recLower.includes('unrelated request:') ||
+        recLower.includes('not related to any service');
+      const isRedirect = recLower.includes('redirect:') ||
+        recLower.includes('best suited for');
+
+      if (isUnrelated || isRedirect) {
+        // Return redirect/unrelated response without package calculation
+        return res.json({
+          success: true,
+          recommendation,
+          isRedirect: isRedirect,
+          isUnrelated: isUnrelated,
+          recommendedPackage: null,
+          recommendedTotal: null
+        });
+      }
+
+      // Extract package type, delivery time, and revisions from recommendation
+      let recommendedPackage = null;
+      let recommendedDelivery = 'standard';
+      let recommendedRevisions = 0;
+
+      // Extract package type - prioritize "Select the [package] package" in bullet points (most reliable)
+      // This is the actual recommendation, not a header
+      const selectMatch = recLower.match(/•\s*select the (basic|standard|premium)\s+package/i) ||
+        recLower.match(/-\s*select the (basic|standard|premium)\s+package/i) ||
+        recLower.match(/select the (basic|standard|premium)\s+package/i);
+      if (selectMatch) {
+        recommendedPackage = selectMatch[1].toLowerCase();
+      }
+
+      // Fallback: look for "RECOMMENDED:" line but only if it's a single word
+      if (!recommendedPackage) {
+        const recommendedLine = recommendation.match(/recommended:\s*([^\n•\-]+)/i);
+        if (recommendedLine) {
+          const recText = recommendedLine[1].toLowerCase().trim();
+          // Only accept if it's a single package name (not a sentence)
+          if (recText.match(/^\s*(basic|standard|premium)\s*$/i)) {
+            recommendedPackage = recText.trim();
+          } else if (recText.match(/^(basic|standard|premium)$/i)) {
+            recommendedPackage = recText;
+          }
+        }
+      }
+
+      // Last resort: look for package in "Select the [package]" without "package" word
+      if (!recommendedPackage) {
+        const selectSimpleMatch = recLower.match(/select the (basic|standard|premium)(?:\s|$)/i);
+        if (selectSimpleMatch) {
+          recommendedPackage = selectSimpleMatch[1].toLowerCase();
+        }
+      }
+
+      // Extract delivery time
+      if (recLower.includes('very fast') || recLower.includes('very-fast') || recLower.includes('1-3 days')) {
+        recommendedDelivery = 'very-fast';
+      } else if (recLower.includes('fast') || recLower.includes('3-5 days')) {
+        recommendedDelivery = 'fast';
+      }
+
+      // Extract revisions (look for "add X revision" pattern, not "includes X revision")
+      // IMPORTANT: Premium has unlimited revisions, so NEVER extract revisions for Premium
+      // Set revisions to 0 FIRST if Premium, then only extract if NOT Premium
+      if (recommendedPackage === 'premium') {
+        // Premium has unlimited revisions, so always set to 0
+        recommendedRevisions = 0;
+      } else {
+        // Only extract revisions for Basic/Standard
+        const addRevisionMatch = recLower.match(/add\s+(\d+)\s+additional?\s+revision/i);
+        if (addRevisionMatch) {
+          recommendedRevisions = parseInt(addRevisionMatch[1]) || 0;
+        }
+      }
+
+      // Calculate recommended total based on extracted values
+      let recommendedTotalUSD = 0;
+      if (recommendedPackage && basePrice > 0) {
+        recommendedTotalUSD = calculatePackagePrice(recommendedPackage, recommendedDelivery, recommendedRevisions);
+
+        // Debug logging for price calculation
+        console.log('Price calculation debug:', {
+          basePrice,
+          recommendedPackage,
+          recommendedDelivery,
+          recommendedRevisions,
+          calculatedTotalUSD: recommendedTotalUSD,
+          currency: currency || 'USD',
+          convertedTotal: convertCurrency(recommendedTotalUSD, currency || 'USD')
+        });
+      }
+      const recommendedTotal = recommendedTotalUSD > 0 ? convertCurrency(recommendedTotalUSD, currency || 'USD') : null;
+
+      res.json({
+        success: true,
+        recommendation,
+        recommendedPackage,
+        recommendedTotal: recommendedTotal
+      });
+
+    } catch (apiError) {
+      console.error('OpenRouter API error:', apiError);
+      res.status(500).json({
         error: 'Failed to get AI recommendation',
-        details: 'The API key may not have access to Generative AI models, or the service is not enabled. Please check your Google Cloud Console settings.'
+        details: apiError.message || 'Unknown error occurred'
       });
     }
 
-    res.json({ success: true, recommendation });
-    return;
-
   } catch (error) {
-    console.error('Google Gemini API error:', error);
-    console.error('Error stack:', error.stack);
+    console.error('Recommend order error:', error);
     res.status(500).json({
       error: 'Internal server error',
       details: error.message || 'Unknown error occurred'

@@ -1,80 +1,120 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useI18n } from './i18n/index.jsx';
 import './NotificationBell.css';
 
 const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
   const { t } = useI18n();
-  const [notifications, setNotifications] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  // Load notifications from LocalStorage
-  useEffect(() => {
+  const bellRef = useRef(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
+  const [notifications, setNotifications] = useState(() => {
+    // Initialize state from LocalStorage synchronously
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('chimpNotifications');
       if (saved) {
         try {
-          setNotifications(JSON.parse(saved));
+          const loadedNotifications = JSON.parse(saved);
+          // Filter to only achievement notifications
+          return loadedNotifications.filter(n => n.type === 'achievement');
         } catch (err) {
           console.error('Error loading notifications:', err);
         }
       }
     }
+    return [];
+  });
+  const [showDropdown, setShowDropdown] = useState(false);
+  const isInitialMount = useRef(true);
+
+  // Load notifications from LocalStorage on mount (only if not already loaded)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isInitialMount.current) {
+      const saved = localStorage.getItem('chimpNotifications');
+      if (saved) {
+        try {
+          const loadedNotifications = JSON.parse(saved);
+          // Filter to only achievement notifications and set them
+          const achievementOnly = loadedNotifications.filter(n => n.type === 'achievement');
+          setNotifications(achievementOnly);
+          // Update storage if there were non-achievement notifications
+          if (achievementOnly.length !== loadedNotifications.length) {
+            localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
+          }
+        } catch (err) {
+          console.error('Error loading notifications:', err);
+        }
+      }
+      isInitialMount.current = false;
+    }
+    
+    // Listen for achievement updates
+    const handleAchievementsUpdated = () => {
+      const saved = localStorage.getItem('chimpNotifications');
+      if (saved) {
+        try {
+          const loadedNotifications = JSON.parse(saved);
+          // Filter to only achievement notifications
+          const achievementOnly = loadedNotifications.filter(n => n.type === 'achievement');
+          setNotifications(achievementOnly);
+          // Update storage if there were non-achievement notifications
+          if (achievementOnly.length !== loadedNotifications.length) {
+            localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
+          }
+        } catch (err) {
+          console.error('Error loading notifications:', err);
+        }
+      }
+    };
+    
+    window.addEventListener('achievementsUpdated', handleAchievementsUpdated);
+    return () => {
+      window.removeEventListener('achievementsUpdated', handleAchievementsUpdated);
+    };
   }, []);
 
-  // Save notifications to LocalStorage whenever they change
+  // Save notifications to LocalStorage whenever they change (only after initial load)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('chimpNotifications', JSON.stringify(notifications));
+    if (typeof window !== 'undefined' && !isInitialMount.current) {
+      // Ensure we only save achievement notifications
+      const achievementOnly = notifications.filter(n => n.type === 'achievement');
+      localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
     }
   }, [notifications]);
 
-  // Check for new notifications on mount and when user data changes
+  // Update dropdown position when window resizes or scrolls
   useEffect(() => {
-    if (!isLoggedIn || !userEmail) return;
-
-    const checkNotifications = () => {
-      const newNotifications = [];
-      const existingIds = new Set(notifications.map(n => n.id));
-
-      // Check for incomplete profile
-      if (userData && (!userData.username || !userData.avatar_url || !userData.title)) {
-        if (!existingIds.has('incomplete-profile')) {
-          newNotifications.push({
-            id: 'incomplete-profile',
-            message: t('notifications.incompleteProfile'),
-            read: false,
-            timestamp: new Date().toISOString(),
-            type: 'info'
-          });
-        }
-      }
-
-      // Check for first login achievement (only add once)
-      const hasFirstLoginAchievement = notifications.some(n => n.id === 'first-login');
-      const hasSeenFirstLogin = localStorage.getItem('hasSeenFirstLogin');
-      if (!hasFirstLoginAchievement && !hasSeenFirstLogin) {
-        newNotifications.push({
-          id: 'first-login',
-          message: t('notifications.firstLogin'),
-          read: false,
-          timestamp: new Date().toISOString(),
-          type: 'achievement'
+    if (showDropdown && bellRef.current) {
+      const updatePosition = () => {
+        const rect = bellRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + 10,
+          right: window.innerWidth - rect.right
         });
-        localStorage.setItem('hasSeenFirstLogin', 'true');
-      }
+      };
 
-      if (newNotifications.length > 0) {
-        setNotifications(prev => [...prev, ...newNotifications]);
-      }
-    };
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      window.addEventListener('scroll', updatePosition, true);
 
-    checkNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn, userEmail, userData]);
+      return () => {
+        window.removeEventListener('resize', updatePosition);
+        window.removeEventListener('scroll', updatePosition, true);
+      };
+    }
+  }, [showDropdown]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // Filter notifications to only show achievements
+  const achievementNotifications = notifications.filter(n => n.type === 'achievement');
+
+  const unreadCount = achievementNotifications.filter(n => !n.read).length;
 
   const handleBellClick = () => {
+    if (bellRef.current) {
+      const rect = bellRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 10,
+        right: window.innerWidth - rect.right
+      });
+    }
     setShowDropdown(!showDropdown);
   };
 
@@ -103,7 +143,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
   }
 
   return (
-    <div className="notification-bell-container">
+    <div className="notification-bell-container" ref={bellRef}>
       <button
         className="notification-bell-btn"
         onClick={handleBellClick}
@@ -117,7 +157,13 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
       </button>
 
       {showDropdown && (
-        <div className="notification-dropdown">
+        <div 
+          className="notification-dropdown"
+          style={{
+            top: `${dropdownPosition.top}px`,
+            right: `${dropdownPosition.right}px`
+          }}
+        >
           <div className="notification-dropdown-header">
             <h3 className="notification-dropdown-title">{t('notifications.title')}</h3>
             <div className="notification-dropdown-actions">
@@ -130,7 +176,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
                   {t('notifications.markAllRead')}
                 </button>
               )}
-              {notifications.length > 0 && (
+              {achievementNotifications.length > 0 && (
                 <button
                   className="notification-clear-all"
                   onClick={handleClearAll}
@@ -143,12 +189,12 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
           </div>
 
           <div className="notification-list">
-            {notifications.length === 0 ? (
+            {achievementNotifications.length === 0 ? (
               <div className="notification-empty">
                 {t('notifications.empty')}
               </div>
             ) : (
-              notifications
+              achievementNotifications
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .map((notification) => (
                   <div

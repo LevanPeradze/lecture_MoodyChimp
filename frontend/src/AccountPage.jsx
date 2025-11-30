@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import PasswordVerificationModal from './PasswordVerificationModal';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
+import { ACHIEVEMENTS, getUnlockedAchievements, checkAchievements } from './achievements';
 
 const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme, setColorTheme }) => {
   const { t, locale, currency } = useI18n();
+  const location = useLocation();
   const [selectedOption, setSelectedOption] = useState('myacc');
   const [userPassword, setUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -18,6 +21,9 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
   const [courseEnrollments, setCourseEnrollments] = useState([]);
   const [serviceOrders, setServiceOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
+  const [unlockedAchievements, setUnlockedAchievements] = useState({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const profileTitles = [
     'Banana Baron',
@@ -29,10 +35,28 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
     'Studio Star'
   ];
 
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  // Check for query parameter on mount
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const section = searchParams.get('section');
+    if (section === 'myorders') {
+      setSelectedOption('myorders');
+    }
+  }, [location.search]);
+
   useEffect(() => {
     // Fetch user data when component mounts or option changes
     if (userEmail) {
       fetchUserData();
+      // Load unlocked achievements
+      getUnlockedAchievements(userEmail).then(unlocked => {
+        setUnlockedAchievements(unlocked);
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOption, userEmail]);
@@ -241,6 +265,43 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!userEmail) return;
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Clear all user data from LocalStorage
+        localStorage.removeItem('isLoggedIn');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('showLoginInHeader');
+        localStorage.removeItem('bookmarkedCourses');
+        localStorage.removeItem(`chimpAchievements:${userEmail}`);
+        localStorage.removeItem(`achievementHintSeen:${userEmail}`);
+        localStorage.removeItem(`userNotes:${userEmail}`);
+        localStorage.removeItem('chimpNotifications');
+        localStorage.removeItem('bananaClicks');
+        localStorage.removeItem('recentServices');
+        
+        // Logout and redirect
+        onLogout();
+      } else {
+        alert(data.error || t('account.deleteError'));
+        setIsDeleting(false);
+      }
+    } catch (err) {
+      console.error('Error deleting account:', err);
+      alert(t('account.deleteError'));
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="account-page">
       <PasswordVerificationModal
@@ -248,6 +309,32 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
         onClose={() => setShowPasswordModal(false)}
         onSuccess={handlePasswordVerified}
       />
+
+      {/* Delete Account Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="delete-account-overlay" onClick={() => !isDeleting && setShowDeleteConfirm(false)}>
+          <div className="delete-account-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="delete-account-title">{t('account.deleteConfirmTitle')}</h3>
+            <p className="delete-account-message">{t('account.deleteConfirmMessage')}</p>
+            <div className="delete-account-actions">
+              <button
+                className="delete-account-cancel-btn"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={isDeleting}
+              >
+                {t('account.cancel')}
+              </button>
+              <button
+                className="delete-account-confirm-btn"
+                onClick={handleDeleteAccount}
+                disabled={isDeleting}
+              >
+                {isDeleting ? t('account.deleting') : t('account.deleteConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="account-sidebar">
         <button className="account-back-btn" onClick={onBack}>
@@ -331,6 +418,39 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
                 type="button"
               >
                 {t('account.logOut')}
+              </button>
+            </div>
+
+            {/* Achievements Section */}
+            <div className="account-achievements">
+              <h3 className="achievements-title">{t('account.achievements')}</h3>
+              <div className="achievements-grid">
+                {Object.values(ACHIEVEMENTS).map((achievement) => {
+                  const isUnlocked = unlockedAchievements[achievement.id] === true;
+                  return (
+                    <div
+                      key={achievement.id}
+                      className={`achievement-badge ${isUnlocked ? 'unlocked' : 'locked'}`}
+                      title={isUnlocked ? achievement.description : t('account.achievementLocked')}
+                    >
+                      <div className="achievement-icon">{achievement.icon}</div>
+                      <div className="achievement-name">{achievement.name}</div>
+                      {!isUnlocked && <div className="achievement-lock">🔒</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Delete Account Section */}
+            <div className="account-delete-section">
+              <button
+                className="account-delete-btn"
+                onClick={() => setShowDeleteConfirm(true)}
+                type="button"
+                disabled={isDeleting}
+              >
+                {t('account.deleteAccount')}
               </button>
             </div>
           </div>

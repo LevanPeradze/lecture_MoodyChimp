@@ -1,27 +1,63 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from './i18n/index.jsx';
+import { checkAchievements } from './achievements';
 import './BananaGame.css';
 
-const BananaGame = () => {
+const BananaGame = ({ userEmail }) => {
   const { t } = useI18n();
-  const [clickCount, setClickCount] = useState(() => {
-    // Load from LocalStorage on mount
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('bananaClicks');
-      return saved ? parseInt(saved, 10) : 0;
-    }
-    return 0;
-  });
+  const [clickCount, setClickCount] = useState(0);
   const [showMessage, setShowMessage] = useState(false);
   const [message, setMessage] = useState('');
   const [isBouncing, setIsBouncing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Save to LocalStorage whenever clickCount changes
+  // Load banana clicks from database on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('bananaClicks', clickCount.toString());
+    if (userEmail) {
+      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/banana-clicks`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setClickCount(data.bananaClicks || 0);
+          }
+          setIsLoading(false);
+        })
+        .catch(err => {
+          console.error('Error loading banana clicks:', err);
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
     }
-  }, [clickCount]);
+  }, [userEmail]);
+
+  // Save to database whenever clickCount changes (only if user is logged in)
+  useEffect(() => {
+    if (userEmail && !isLoading && clickCount > 0) {
+      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/banana-clicks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ bananaClicks: clickCount }),
+      }).catch(err => console.error('Error saving banana clicks:', err));
+    }
+  }, [clickCount, userEmail, isLoading]);
+
+  // Check for unemployment achievement on mount if user is logged in
+  useEffect(() => {
+    if (userEmail && clickCount >= 500) {
+      checkAchievements(userEmail, 'banana-clicks', { count: clickCount }).then(achievementNotifications => {
+        if (achievementNotifications.length > 0) {
+          const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+          const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+          localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+          window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+        }
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userEmail]);
 
   const handleBananaClick = () => {
     const newCount = clickCount + 1;
@@ -30,6 +66,18 @@ const BananaGame = () => {
     // Trigger bounce animation
     setIsBouncing(true);
     setTimeout(() => setIsBouncing(false), 600);
+
+    // Check for achievements (banana clicks)
+    if (userEmail) {
+      checkAchievements(userEmail, 'banana-clicks', { count: newCount }).then(achievementNotifications => {
+        if (achievementNotifications.length > 0) {
+          const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+          const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+          localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+          window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+        }
+      });
+    }
 
     // Check for milestones
     let milestoneMessage = '';

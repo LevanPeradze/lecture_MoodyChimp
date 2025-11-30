@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { checkAchievements } from './achievements';
 import './ReviewSection.css';
 
 const ReviewSection = ({ itemId, itemType, userEmail, isLoggedIn }) => {
@@ -89,6 +90,18 @@ const ReviewSection = ({ itemId, itemType, userEmail, isLoggedIn }) => {
         setTimeout(() => setSubmitMessage(''), 3000);
         // Refresh reviews
         fetchReviews();
+        
+        // Check for first review achievement (only if it's a new review, not an update)
+        if (!userReview && userEmail) {
+          checkAchievements(userEmail, 'review').then(achievementNotifications => {
+            if (achievementNotifications.length > 0) {
+              const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
+              const updatedNotifications = [...existingNotifications, ...achievementNotifications];
+              localStorage.setItem('chimpNotifications', JSON.stringify(updatedNotifications));
+              window.dispatchEvent(new CustomEvent('achievementsUpdated'));
+            }
+          });
+        }
       } else {
         setSubmitMessage(data.error || 'Failed to submit review');
       }

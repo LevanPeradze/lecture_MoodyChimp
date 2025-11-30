@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ReviewSection from './ReviewSection';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
+import { checkAchievements } from './achievements';
 import './DetailsPage.css';
 import './OrderPage.css';
 
@@ -51,21 +52,32 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Redirect service types to order page (services don't have details pages)
   useEffect(() => {
+    if (type === 'service') {
+      navigate(`/order/${id}`);
+      return;
+    }
+  }, [type, id, navigate]);
+
+  useEffect(() => {
+    // Don't fetch if it's a service (will be redirected)
+    if (type === 'service') {
+      return;
+    }
+
     const fetchDetails = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const endpoint = type === 'service' 
-          ? `http://localhost:4000/api/services/${id}`
-          : `http://localhost:4000/api/course-services/${id}`;
+        const endpoint = `http://localhost:4000/api/course-services/${id}`;
 
         const response = await fetch(endpoint);
         const data = await response.json();
 
         if (response.ok && data.success) {
-          const fetchedItem = type === 'service' ? data.service : data.course;
+          const fetchedItem = data.course;
           setItem(fetchedItem);
           
           // Track recently viewed item
@@ -73,12 +85,8 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
             let thumbnail = null;
             let illustration = null;
             
-            if (type === 'course') {
-              thumbnail = fetchedItem.details?.banner_image_url || null;
-              illustration = fetchedItem.illustration || fetchedItem.icon || null;
-            } else {
-              thumbnail = fetchedItem.details?.banner_image_url || null;
-            }
+            thumbnail = fetchedItem.details?.banner_image_url || null;
+            illustration = fetchedItem.illustration || fetchedItem.icon || null;
             
             // Only set thumbnail if it's a valid non-empty string
             if (!thumbnail || (typeof thumbnail === 'string' && thumbnail.trim() === '')) {
@@ -92,7 +100,7 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
             
             trackRecentlyViewed({
               id: parseInt(id),
-              type: type,
+              type: 'course', // Only courses use details page
               title: fetchedItem.title,
               thumbnail: thumbnail,
               illustration: illustration
@@ -180,16 +188,6 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
           <div className="details-title-section">
             {isOptimal && <span className="optimal-tag">Optimal!</span>}
             <h1 className="details-title">{item.title}</h1>
-            {type === 'service' && item.price && (() => {
-              // Parse price from string like "Starting at $150" or "$150"
-              const priceMatch = item.price.match(/\$?(\d+)/);
-              const basePriceUSD = priceMatch ? parseInt(priceMatch[1], 10) : 0;
-              return basePriceUSD > 0 ? (
-                <span className="details-price">{formatPrice(convertCurrency(basePriceUSD, currency), currency, locale)}</span>
-              ) : (
-                <span className="details-price">{item.price}</span>
-              );
-            })()}
             {type === 'course' && item.level && (
               <span className="details-level">{item.level}</span>
             )}
@@ -223,12 +221,6 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
             </div>
           )}
 
-          {type === 'service' && item.details?.what_youll_learn && (
-            <div className="details-section">
-              <h2 className="details-section-title">{t('details.whatYoullGet')}</h2>
-              <p className="details-text">{item.details.what_youll_learn}</p>
-            </div>
-          )}
 
           {item.details?.difficulty_level && (
             <div className="details-section">
@@ -265,36 +257,12 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
             </div>
           )}
 
-          {type === 'service' && (
-            <div className="details-section">
-              <div className="details-order-section">
-                {isLoggedIn ? (
-                  <button
-                    className="details-order-btn"
-                    onClick={() => navigate(`/order/service/${item.id}`)}
-                  >
-                    {t('details.orderNow')}
-                  </button>
-                ) : (
-                  <div className="details-login-prompt">
-                    <p>{t('details.loginPrompt')}</p>
-                    <button
-                      className="details-order-btn"
-                      onClick={() => navigate('/')}
-                    >
-                      {t('details.goToLogin')}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Reviews Section */}
           <div className="details-section">
             <ReviewSection
               itemId={item.id}
-              itemType={type}
+              itemType="course"
               userEmail={userEmail}
               isLoggedIn={isLoggedIn}
             />

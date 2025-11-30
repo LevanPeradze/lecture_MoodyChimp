@@ -5,7 +5,32 @@
     "contact": "Kontakt",
     "instagram": "Instagram",
     "savedStuff": "Gespeichert",
-    "account": "Konto"
+    "account": "Konto",
+    "searchPlaceholder": "Kurse & Services suchen...",
+    "searchAriaLabel": "Nach Kursen und Services suchen",
+    "clearSearch": "Suche löschen"
+  },
+  "sidebar": {
+    "home": "Startseite",
+    "myOrders": "Meine Bestellungen",
+    "savedCourses": "Gespeicherte Kurse",
+    "viewNotes": "Meine Notizen",
+    "notes": {
+      "title": "Notizen",
+      "placeholder": "Schreiben Sie hier Ihre persönlichen Notizen...",
+      "save": "Speichern",
+      "saved": "Gespeichert!",
+      "saveError": "Fehler beim Speichern der Notizen",
+      "myNotes": "Meine Notizen",
+      "noNotes": "Sie haben noch keine gespeicherten Notizen.",
+      "words": "Wörter",
+      "wordLimitExceeded": "Notiz überschreitet das Limit von 50 Wörtern",
+      "emptyNote": "Notiz darf nicht leer sein",
+      "clearAll": "Alle Notizen löschen",
+      "confirmClear": "Sind Sie sicher, dass Sie alle Notizen löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "cleared": "Alle Notizen gelöscht!",
+      "clearError": "Fehler beim Löschen der Notizen"
+    }
   },
   "hero": {
     "label": "kreatives Studio / global",
@@ -35,7 +60,8 @@
       "showing": "Zeige",
       "of": "von",
       "courses": "Kurse",
-      "services": "Dienstleistungen"
+      "services": "Dienstleistungen",
+      "matching": "passend zu"
     },
     "questionnaire": {
       "notSure": "nicht sicher?",
@@ -74,6 +100,15 @@
     "editProfile": "Profil bearbeiten",
     "myOrders": "Meine Bestellungen",
     "myAccount": "Mein Konto",
+    "achievements": "Errungenschaften",
+    "achievementLocked": "Gesperrt - Vervollständige Aktionen zum Freischalten",
+    "deleteAccount": "Konto löschen",
+    "deleteConfirmTitle": "Konto löschen",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Daten werden dauerhaft gelöscht.",
+    "deleteConfirm": "Löschen",
+    "cancel": "Abbrechen",
+    "deleting": "Wird gelöscht...",
+    "deleteError": "Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.",
     "email": "E-Mail",
     "password": "Passwort",
     "logOut": "Abmelden",
@@ -165,6 +200,8 @@
     "level": "Niveau:",
     "revisions": "Überarbeitungen:",
     "revision": "Überarbeitung",
+    "subtotal": "Zwischensumme:",
+    "achievementDiscount": "Errungenschaftsrabatt (30%):",
     "total": "Gesamt:",
     "whatHappensNext": "Was passiert als Nächstes?",
     "orderReview": "Ihre Bestellung wird überprüft",
@@ -182,6 +219,15 @@
     "errorPlacingOrder": "Fehler beim Aufgeben der Bestellung. Bitte versuchen Sie es erneut.",
     "days": "Tage",
     "day": "Tag"
+  },
+  "orderAI": {
+    "title": "KI-Empfehlung",
+    "placeholder": "Beschreiben Sie, was Sie erstellen möchten oder wobei Sie Hilfe benötigen...",
+    "getRecommendation": "Empfehlung erhalten",
+    "loading": "Empfehlung wird abgerufen...",
+    "recommendation": "Empfehlung:",
+    "emptyDescription": "Bitte geben Sie zuerst eine Beschreibung ein.",
+    "error": "Empfehlung konnte nicht abgerufen werden. Bitte versuchen Sie es erneut."
   },
   "bookmarks": {
     "title": "Gespeicherte Elemente",
