@@ -67,6 +67,18 @@ pool.query(`
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='updated_at') THEN
       ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='achievements') THEN
+      ALTER TABLE users ADD COLUMN achievements JSONB DEFAULT '{}';
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='achievement_discount_granted') THEN
+      ALTER TABLE users ADD COLUMN achievement_discount_granted BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='achievement_discount_available') THEN
+      ALTER TABLE users ADD COLUMN achievement_discount_available BOOLEAN DEFAULT FALSE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='banana_clicks') THEN
+      ALTER TABLE users ADD COLUMN banana_clicks INTEGER DEFAULT 0;
+    END IF;
   END $$;
 `).catch(err => console.error('Error adding columns to users table:', err));
 
@@ -216,6 +228,17 @@ pool.query(`
   )
 `).catch(err => console.error('Error creating optimal table:', err));
 
+// Initialize user_notes table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS user_notes (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    note_text TEXT NOT NULL,
+    word_count INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating user_notes table:', err));
+
 // Insert default services if they don't exist
 const insertDefaultServices = async () => {
   const services = [
@@ -244,7 +267,7 @@ const insertDefaultServices = async () => {
         'SELECT id FROM services WHERE category = $1 AND title = $2',
         [service.category, service.title]
       );
-      
+
       if (existing.rows.length === 0) {
         await pool.query(
           'INSERT INTO services (category, title, description, price) VALUES ($1, $2, $3, $4)',
@@ -260,10 +283,10 @@ const insertDefaultServices = async () => {
 // Insert default course services (Learn services) if they don't exist
 const insertDefaultCourseServices = async () => {
   const courseServices = [
-    { 
-      title: 'Game Dev', 
-      level: 'for beginners', 
-      icon: '🎮', 
+    {
+      title: 'Game Dev',
+      level: 'for beginners',
+      icon: '🎮',
       illustration: '🎮',
       details: {
         full_description: 'Learn the fundamentals of game development from scratch. This comprehensive course covers game design principles, programming basics, and hands-on project creation. Perfect for absolute beginners who want to create their first game.',
@@ -273,10 +296,10 @@ const insertDefaultCourseServices = async () => {
         estimated_duration: '8-12 weeks'
       }
     },
-    { 
-      title: 'Animation', 
-      level: 'beginner-intermediate', 
-      icon: '🎬', 
+    {
+      title: 'Animation',
+      level: 'beginner-intermediate',
+      icon: '🎬',
       illustration: '🎬',
       details: {
         full_description: 'Master the art of animation from keyframe planning to smooth motion. Learn traditional and digital animation techniques, timing, spacing, and character movement. Build a portfolio of animated sequences.',
@@ -286,10 +309,10 @@ const insertDefaultCourseServices = async () => {
         estimated_duration: '10-14 weeks'
       }
     },
-    { 
-      title: 'Simplifying the human figure', 
-      level: 'intermediate-advanced', 
-      icon: '✏️', 
+    {
+      title: 'Simplifying the human figure',
+      level: 'intermediate-advanced',
+      icon: '✏️',
       illustration: '✏️',
       details: {
         full_description: 'Advanced course on drawing the human figure with simplified, powerful forms. Learn to break down complex anatomy into essential shapes, master proportions, and create dynamic figure drawings from imagination.',
@@ -308,7 +331,7 @@ const insertDefaultCourseServices = async () => {
         'SELECT id FROM Course_Service WHERE title = $1',
         [course.title]
       );
-      
+
       let courseId;
       if (existing.rows.length === 0) {
         const result = await pool.query(
@@ -410,13 +433,13 @@ app.post('/api/signin', async (req, res) => {
 
     // Check if user exists (case-insensitive email)
     const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
-    
+
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
-    
+
     // Compare passwords (trim to handle any whitespace issues)
     if (user.password.trim() !== password.trim()) {
       return res.status(401).json({ error: 'Invalid email or password' });
@@ -436,19 +459,58 @@ app.get('/api/user/:email', async (req, res) => {
 
     // Get user data including profile fields from users table
     const userResult = await pool.query(
-      'SELECT id, email, password, username, avatar_url, title, color_theme FROM users WHERE email = $1', 
+      'SELECT id, email, password, username, avatar_url, title, color_theme, achievements, achievement_discount_granted, achievement_discount_available, banana_clicks FROM users WHERE email = $1',
       [email]
     );
-    
+
     if (userResult.rows.length === 0) {
       return res.status(404).json({ error: 'User not found' });
     }
 
     const userData = userResult.rows[0];
+    // Ensure achievements is always an object
+    if (userData.achievements) {
+      if (typeof userData.achievements === 'string') {
+        try {
+          userData.achievements = JSON.parse(userData.achievements);
+        } catch (e) {
+          userData.achievements = {};
+        }
+      } else if (typeof userData.achievements !== 'object') {
+        userData.achievements = {};
+      }
+    } else {
+      userData.achievements = {};
+    }
 
     res.json({ success: true, user: userData });
   } catch (error) {
     console.error('Get user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete user account endpoint
+app.delete('/api/user/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete user (CASCADE will handle related records in other tables)
+    await pool.query('DELETE FROM users WHERE email = $1', [email]);
+
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -532,14 +594,14 @@ app.post('/api/verify-password', async (req, res) => {
 
     // First, get the user by email (case-insensitive)
     const userResult = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email.trim()]);
-    
+
     if (userResult.rows.length === 0) {
       console.error('User not found for email:', email);
       return res.status(401).json({ error: 'Incorrect password' });
     }
 
     const user = userResult.rows[0];
-    
+
     // Compare passwords (trim to handle any whitespace issues)
     if (user.password.trim() !== password.trim()) {
       console.error('Password mismatch for email:', email);
@@ -561,10 +623,10 @@ app.get('/api/services', async (req, res) => {
     res.json({ success: true, services: result.rows });
   } catch (error) {
     console.error('Get all services error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -582,7 +644,7 @@ app.get('/api/services/:id', async (req, res) => {
 
     // Get service basic info
     const serviceResult = await pool.query('SELECT * FROM services WHERE id = $1', [serviceId]);
-    
+
     if (serviceResult.rows.length === 0) {
       return res.status(404).json({ success: false, error: 'Service not found' });
     }
@@ -633,10 +695,10 @@ app.get('/api/course-services', async (req, res) => {
     res.json({ success: true, services: result.rows });
   } catch (error) {
     console.error('Get course services error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Internal server error',
-      message: error.message 
+      message: error.message
     });
   }
 });
@@ -648,7 +710,7 @@ app.get('/api/course-services/:id', async (req, res) => {
 
     // Get course basic info
     const courseResult = await pool.query('SELECT * FROM Course_Service WHERE id = $1', [id]);
-    
+
     if (courseResult.rows.length === 0) {
       return res.status(404).json({ error: 'Course not found' });
     }
@@ -1048,6 +1110,340 @@ function determineOptimalCourse(answers) {
   scores.sort((a, b) => b.score - a.score);
   return scores[0].course;
 }
+
+// Helper function to count words in text
+function countWords(text) {
+  if (!text || typeof text !== 'string') return 0;
+  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+}
+
+// GET user notes
+app.get('/api/user/:email/notes', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const result = await pool.query(
+      'SELECT id, note_text, word_count, created_at FROM user_notes WHERE user_email = $1 ORDER BY created_at DESC',
+      [email]
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Get notes error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST new note
+app.post('/api/user/:email/notes', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { note_text } = req.body;
+
+    if (!note_text || typeof note_text !== 'string') {
+      return res.status(400).json({ error: 'Note text is required' });
+    }
+
+    const wordCount = countWords(note_text);
+
+    if (wordCount > 50) {
+      return res.status(400).json({ error: 'Note exceeds 50 word limit' });
+    }
+
+    if (wordCount === 0) {
+      return res.status(400).json({ error: 'Note cannot be empty' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO user_notes (user_email, note_text, word_count) VALUES ($1, $2, $3) RETURNING id, note_text, word_count, created_at',
+      [email, note_text, wordCount]
+    );
+
+    res.json({ success: true, note: result.rows[0] });
+  } catch (error) {
+    console.error('Save note error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// DELETE all notes for a user
+app.delete('/api/user/:email/notes', async (req, res) => {
+  try {
+    const { email } = req.params;
+    await pool.query(
+      'DELETE FROM user_notes WHERE user_email = $1',
+      [email]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Delete notes error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user achievements endpoint
+app.get('/api/user/:email/achievements', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const userResult = await pool.query(
+      'SELECT achievements, achievement_discount_granted, achievement_discount_available FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = userResult.rows[0];
+    let achievements = {};
+
+    // Handle achievements - it might be null, a string, or already an object
+    if (user.achievements) {
+      if (typeof user.achievements === 'string') {
+        try {
+          achievements = JSON.parse(user.achievements);
+        } catch (e) {
+          achievements = {};
+        }
+      } else if (typeof user.achievements === 'object') {
+        achievements = user.achievements;
+      }
+    }
+
+    res.json({
+      success: true,
+      achievements: achievements,
+      discountGranted: user.achievement_discount_granted || false,
+      discountAvailable: user.achievement_discount_available || false
+    });
+  } catch (error) {
+    console.error('Get achievements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user achievements endpoint
+app.post('/api/user/:email/achievements', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { achievements, discountGranted, discountAvailable } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Build update query
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (achievements !== undefined) {
+      updates.push(`achievements = $${paramCount}`);
+      values.push(JSON.stringify(achievements));
+      paramCount++;
+    }
+
+    if (discountGranted !== undefined) {
+      updates.push(`achievement_discount_granted = $${paramCount}`);
+      values.push(discountGranted);
+      paramCount++;
+    }
+
+    if (discountAvailable !== undefined) {
+      updates.push(`achievement_discount_available = $${paramCount}`);
+      values.push(discountAvailable);
+      paramCount++;
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No updates provided' });
+    }
+
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(email);
+
+    await pool.query(
+      `UPDATE users SET ${updates.join(', ')} WHERE email = $${paramCount}`,
+      values
+    );
+
+    res.json({ success: true, message: 'Achievements updated successfully' });
+  } catch (error) {
+    console.error('Update achievements error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user banana clicks endpoint
+app.get('/api/user/:email/banana-clicks', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const userResult = await pool.query(
+      'SELECT banana_clicks FROM users WHERE email = $1',
+      [email]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({
+      success: true,
+      bananaClicks: userResult.rows[0].banana_clicks || 0
+    });
+  } catch (error) {
+    console.error('Get banana clicks error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user banana clicks endpoint
+app.post('/api/user/:email/banana-clicks', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { bananaClicks } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (bananaClicks === undefined || bananaClicks === null) {
+      return res.status(400).json({ error: 'bananaClicks is required' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    await pool.query(
+      'UPDATE users SET banana_clicks = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
+      [bananaClicks, email]
+    );
+
+    res.json({ success: true, message: 'Banana clicks updated successfully' });
+  } catch (error) {
+    console.error('Update banana clicks error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Google Gemini API endpoint for order recommendations
+app.post('/api/chatgpt/recommend', async (req, res) => {
+  try {
+    const { userRequest, serviceCategory } = req.body;
+
+    if (!userRequest) {
+      return res.status(400).json({ error: 'User request is required' });
+    }
+
+    const GOOGLE_API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyDT_PybNa_R9yg7kclDesup-9WTlaOmAEE';
+
+    if (!GOOGLE_API_KEY || GOOGLE_API_KEY.length < 20) {
+      console.error('Invalid Google API key');
+      return res.status(500).json({ error: 'API key not configured properly' });
+    }
+
+    const prompt = `You are a helpful assistant for a creative services platform called MoodyChimp. A user wants to order a custom creative service. 
+
+User's request: "${userRequest}"
+${serviceCategory ? `Service category: ${serviceCategory}` : ''}
+
+Based on the user's request, recommend what type of service package they should order (Basic, Standard, or Premium) and explain why. Also suggest any important details they should include in their special instructions.
+
+Keep your response concise (2-3 sentences) and helpful. Format your response as plain text without markdown.`;
+
+    // Check if fetch is available
+    if (typeof fetch === 'undefined') {
+      console.error('fetch is not available. Node.js version might be too old or fetch needs to be imported.');
+      return res.status(500).json({ error: 'Server configuration error: fetch not available' });
+    }
+
+    // Try using Google's Generative AI API with different possible endpoints
+    // The API key format suggests it might be for a different Google service
+    // Let's try the AI Studio endpoint format
+    let response;
+    let recommendation = null;
+
+    // Try different possible endpoints and models
+    const endpoints = [
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${GOOGLE_API_KEY}`,
+      `https://ai.google.dev/api/generate?key=${GOOGLE_API_KEY}`
+    ];
+
+    let lastError = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        console.log('Trying endpoint:', endpoint.split('?')[0]);
+        response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: prompt
+              }]
+            }],
+            generationConfig: {
+              maxOutputTokens: 200,
+              temperature: 0.7
+            }
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          recommendation = data.candidates?.[0]?.content?.parts?.[0]?.text ||
+            data.text ||
+            data.response ||
+            'Unable to generate recommendation.';
+          console.log('Success with endpoint:', endpoint.split('?')[0]);
+          break;
+        } else {
+          const errorText = await response.text();
+          lastError = { status: response.status, text: errorText };
+          console.log('Failed with endpoint:', endpoint.split('?')[0], response.status);
+        }
+      } catch (err) {
+        lastError = { error: err.message };
+        console.log('Error with endpoint:', endpoint.split('?')[0], err.message);
+        continue;
+      }
+    }
+
+    if (!recommendation) {
+      // If all endpoints failed, return a helpful error
+      console.error('All API endpoints failed. Last error:', lastError);
+      return res.status(500).json({
+        error: 'Failed to get AI recommendation',
+        details: 'The API key may not have access to Generative AI models, or the service is not enabled. Please check your Google Cloud Console settings.'
+      });
+    }
+
+    res.json({ success: true, recommendation });
+    return;
+
+  } catch (error) {
+    console.error('Google Gemini API error:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message || 'Unknown error occurred'
+    });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Backend API running on http://localhost:${PORT}`);
