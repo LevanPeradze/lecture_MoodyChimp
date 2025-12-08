@@ -46,7 +46,22 @@ export default function BookmarksPage({ bookmarkedCourses, learnServices, onClos
                 >
                   {isBookmarked ? '❤️' : '🤍'}
                 </button>
-                <div className="learn-service-illustration">{service.illustration || service.icon}</div>
+                {service.thumbnail_image_url ? (
+                  <div className="learn-service-banner">
+                    <img 
+                      src={service.thumbnail_image_url} 
+                      alt={service.title}
+                      className="learn-service-banner-img"
+                      onError={(e) => {
+                        // Fallback to emoji if image fails to load
+                        const parent = e.target.parentElement;
+                        parent.innerHTML = `<div class="learn-service-illustration">${service.illustration || service.icon || '📚'}</div>`;
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="learn-service-illustration">{service.illustration || service.icon || '📚'}</div>
+                )}
                 <div className="learn-service-content">
                   <h3 className="learn-service-title">{service.title}</h3>
                   <span className="learn-service-level">{service.level}</span>

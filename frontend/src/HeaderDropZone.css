@@ -1,0 +1,42 @@
+.header-drop-zone {
+  min-width: 4px;
+  min-height: 100%;
+  opacity: 0;
+  background-color: transparent;
+  transition: opacity 0.2s ease, background-color 0.2s ease, box-shadow 0.3s ease, min-width 0.2s ease;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.header-drop-zone.drag-over {
+  opacity: 1;
+  background-color: var(--accent-primary);
+  min-width: 8px;
+  box-shadow: 
+    0 0 10px var(--accent-primary),
+    0 0 20px var(--accent-primary),
+    0 0 30px var(--shadow-accent),
+    inset 0 0 10px var(--accent-secondary);
+  animation: drop-zone-glow 1.5s ease-in-out infinite alternate;
+}
+
+@keyframes drop-zone-glow {
+  from {
+    box-shadow: 
+      0 0 10px var(--accent-primary),
+      0 0 20px var(--accent-primary),
+      0 0 30px var(--shadow-accent),
+      inset 0 0 10px var(--accent-secondary);
+  }
+  to {
+    box-shadow: 
+      0 0 15px var(--accent-primary),
+      0 0 30px var(--accent-primary),
+      0 0 45px var(--shadow-accent),
+      inset 0 0 15px var(--accent-secondary);
+  }
+}
+

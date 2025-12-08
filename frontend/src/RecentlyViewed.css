@@ -95,21 +95,27 @@
 }
 
 .recently-viewed-strip::-webkit-scrollbar {
-  height: 8px;
+  height: 10px;
+  width: 10px;
 }
 
 .recently-viewed-strip::-webkit-scrollbar-track {
   background: var(--bg-secondary);
-  border-radius: 4px;
+  border-left: 2px solid var(--border-secondary);
+  border-radius: 0;
 }
 
 .recently-viewed-strip::-webkit-scrollbar-thumb {
   background: var(--accent-secondary);
-  border-radius: 4px;
+  border: 2px solid var(--border-primary);
+  border-radius: 0;
+  box-shadow: inset 2px 2px 0 var(--shadow-accent);
 }
 
 .recently-viewed-strip::-webkit-scrollbar-thumb:hover {
   background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  box-shadow: inset 2px 2px 0 var(--shadow-accent), 0 0 8px var(--accent-quaternary);
 }
 
 .recently-viewed-card {
