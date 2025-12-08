@@ -9,9 +9,35 @@ if (fs.existsSync(envLocalPath)) {
 const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
+const cloudinary = require('cloudinary').v2;
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Configure Cloudinary
+if (process.env.CLOUDINARY_URL) {
+  try {
+    // Cloudinary can parse the URL directly
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_URL.match(/@([^.]+)/)?.[1] || 'dtewb8gij',
+      api_key: process.env.CLOUDINARY_URL.match(/:\/\/([^:]+):/)?.[1] || '942843772345576',
+      api_secret: process.env.CLOUDINARY_URL.match(/:\/\/([^:]+):([^@]+)@/)?.[2] || 'cTIVy64rftIJhE5BNTlNRpRcVS4'
+    });
+    console.log('Cloudinary configured successfully');
+    console.log('Cloud name:', cloudinary.config().cloud_name);
+  } catch (error) {
+    console.error('Failed to configure Cloudinary:', error);
+  }
+} else {
+  console.warn('CLOUDINARY_URL not found in environment variables');
+}
+
+// Configure multer for file uploads (memory storage)
+const upload = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 // Enable JSON parsing and basic CORS so the frontend can call the API locally.
 app.use(cors());
@@ -159,6 +185,7 @@ pool.query(`
     id SERIAL PRIMARY KEY,
     course_id INTEGER NOT NULL REFERENCES Course_Service(id) ON DELETE CASCADE,
     banner_image_url TEXT,
+    thumbnail_image_url TEXT,
     full_description TEXT,
     what_youll_learn TEXT,
     course_outline TEXT,
@@ -169,6 +196,17 @@ pool.query(`
     UNIQUE(course_id)
   )
 `).catch(err => console.error('Error creating course_details table:', err));
+
+// Add thumbnail_image_url column if it doesn't exist
+pool.query(`
+  ALTER TABLE course_details 
+  ADD COLUMN IF NOT EXISTS thumbnail_image_url TEXT
+`).catch(err => {
+  // Ignore error if column already exists
+  if (!err.message.includes('duplicate column')) {
+    console.error('Error adding thumbnail_image_url column:', err);
+  }
+});
 
 // Initialize reviews table for ratings and comments
 pool.query(`
@@ -256,6 +294,69 @@ pool.query(`
     UNIQUE(user_email, course_id)
   )
 `).catch(err => console.error('Error creating saved_courses table:', err));
+
+// Initialize admin table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS admins (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    permissions JSONB DEFAULT '{
+      "user_management": true,
+      "content_management": true,
+      "dashboard": true,
+      "settings": true
+    }'::jsonb,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating admins table:', err));
+
+// Insert default admin user if they don't exist
+const insertDefaultAdmin = async () => {
+  try {
+    // Get user with id 10
+    const userResult = await pool.query(
+      'SELECT id, email FROM users WHERE id = $1',
+      [10]
+    );
+
+    if (userResult.rows.length === 0) {
+      console.log('Warning: User with id 10 does not exist in users table.');
+      return;
+    }
+
+    const user = userResult.rows[0];
+    const userEmail = user.email;
+
+    // Check if admin already exists for this user
+    const existing = await pool.query(
+      'SELECT id FROM admins WHERE email = $1',
+      [userEmail]
+    );
+
+    if (existing.rows.length === 0) {
+      // Insert admin with all permissions
+      await pool.query(
+        `INSERT INTO admins (email, permissions) 
+         VALUES ($1, $2::jsonb)`,
+        [
+          userEmail,
+          JSON.stringify({
+            user_management: true,
+            content_management: true,
+            dashboard: true,
+            settings: true
+          })
+        ]
+      );
+      console.log(`Admin user (id: 10, email: ${userEmail}) added successfully`);
+    } else {
+      console.log(`Admin user (id: 10, email: ${userEmail}) already exists`);
+    }
+  } catch (err) {
+    console.error('Error inserting admin user:', err);
+  }
+};
 
 // Insert default services if they don't exist
 const insertDefaultServices = async () => {
@@ -395,6 +496,7 @@ const insertDefaultCourseServices = async () => {
 setTimeout(() => {
   insertDefaultServices().catch(err => console.error('Error inserting default services:', err));
   insertDefaultCourseServices().catch(err => console.error('Error inserting default course services:', err));
+  insertDefaultAdmin().catch(err => console.error('Error inserting default admin:', err));
 }, 1000);
 
 // Simple in-memory placeholder data to avoid database usage for now.
@@ -601,6 +703,650 @@ app.post('/api/update-profile', async (req, res) => {
   }
 });
 
+// Admin endpoints
+// Check if user is admin
+app.get('/api/admin/check/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const result = await pool.query(
+      'SELECT id, email, permissions, created_at FROM admins WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ success: true, isAdmin: false });
+    }
+
+    const admin = result.rows[0];
+    // Parse permissions if it's a string
+    if (typeof admin.permissions === 'string') {
+      try {
+        admin.permissions = JSON.parse(admin.permissions);
+      } catch (e) {
+        admin.permissions = {};
+      }
+    }
+
+    res.json({ success: true, isAdmin: true, admin });
+  } catch (error) {
+    console.error('Check admin error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get admin permissions
+app.get('/api/admin/permissions/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    const result = await pool.query(
+      'SELECT permissions FROM admins WHERE email = $1',
+      [email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    let permissions = result.rows[0].permissions;
+    // Parse permissions if it's a string
+    if (typeof permissions === 'string') {
+      try {
+        permissions = JSON.parse(permissions);
+      } catch (e) {
+        permissions = {};
+      }
+    }
+
+    res.json({ success: true, permissions });
+  } catch (error) {
+    console.error('Get admin permissions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update admin permissions (for future use)
+app.put('/api/admin/permissions/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+    const { permissions } = req.body;
+
+    if (!permissions || typeof permissions !== 'object') {
+      return res.status(400).json({ error: 'Invalid permissions object' });
+    }
+
+    const result = await pool.query(
+      `UPDATE admins 
+       SET permissions = $1::jsonb, updated_at = CURRENT_TIMESTAMP 
+       WHERE email = $2 
+       RETURNING id, email, permissions`,
+      [JSON.stringify(permissions), email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Admin not found' });
+    }
+
+    let updatedPermissions = result.rows[0].permissions;
+    if (typeof updatedPermissions === 'string') {
+      try {
+        updatedPermissions = JSON.parse(updatedPermissions);
+      } catch (e) {
+        updatedPermissions = {};
+      }
+    }
+
+    res.json({ success: true, permissions: updatedPermissions });
+  } catch (error) {
+    console.error('Update admin permissions error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ========== ADMIN PANEL API ENDPOINTS ==========
+
+// Get all users (admin only)
+app.get('/api/admin/users', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, email, username, avatar_url, title, color_theme, created_at, 
+       (SELECT COUNT(*) FROM orders WHERE orders.user_email = users.email) as order_count,
+       (SELECT COUNT(*) FROM course_enrollments WHERE course_enrollments.user_email = users.email) as enrollment_count
+       FROM users 
+       ORDER BY created_at DESC`
+    );
+
+    res.json({ success: true, users: result.rows });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update user (admin only)
+app.put('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, title, avatar_url, color_theme, password } = req.body;
+
+    console.log('Admin updating user:', { id, username, title, avatar_url, color_theme, hasPassword: !!password });
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (username !== undefined) {
+      updates.push(`username = $${paramCount++}`);
+      values.push(username);
+    }
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (avatar_url !== undefined) {
+      updates.push(`avatar_url = $${paramCount++}`);
+      values.push(avatar_url);
+    }
+    if (color_theme !== undefined) {
+      // Always update color_theme if it's provided, even if it's the default
+      const themeValue = color_theme || 'default';
+      updates.push(`color_theme = $${paramCount++}`);
+      values.push(themeValue);
+      console.log('Updating color_theme to:', themeValue);
+    }
+    if (password !== undefined && password !== null && password !== '') {
+      // Update password (in production, hash the password!)
+      updates.push(`password = $${paramCount++}`);
+      values.push(password);
+      console.log('Updating password for user:', id);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(id);
+    const updateQuery = `
+      UPDATE users 
+      SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramCount}
+      RETURNING id, email, username, avatar_url, title, color_theme, created_at
+    `;
+
+    const result = await pool.query(updateQuery, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const updatedUser = result.rows[0];
+    console.log('User updated:', { id: updatedUser.id, email: updatedUser.email, color_theme: updatedUser.color_theme });
+
+    res.json({ success: true, user: updatedUser });
+  } catch (error) {
+    console.error('Update user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete user (admin only)
+app.delete('/api/admin/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING id, email', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get all services for admin (including courses)
+app.get('/api/admin/services', async (req, res) => {
+  try {
+    const servicesResult = await pool.query(
+      'SELECT id, category, title, description, price, created_at FROM services ORDER BY category, id'
+    );
+
+    const coursesResult = await pool.query(
+      `SELECT cs.id, cs.title, cs.level, cs.icon, cs.illustration, cs.created_at, 
+              cd.banner_image_url, cd.thumbnail_image_url
+       FROM Course_Service cs
+       LEFT JOIN course_details cd ON cs.id = cd.course_id
+       ORDER BY cs.id`
+    );
+
+    res.json({
+      success: true,
+      services: servicesResult.rows.map(s => ({ ...s, type: 'service' })),
+      courses: coursesResult.rows.map(c => ({ ...c, type: 'course' }))
+    });
+  } catch (error) {
+    console.error('Get admin services error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update service (admin only)
+app.put('/api/admin/services/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { category, title, description, price } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (category !== undefined) {
+      updates.push(`category = $${paramCount++}`);
+      values.push(category);
+    }
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${paramCount++}`);
+      values.push(description);
+    }
+    if (price !== undefined) {
+      updates.push(`price = $${paramCount++}`);
+      values.push(price);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+
+    values.push(id);
+    const updateQuery = `
+      UPDATE services 
+      SET ${updates.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, category, title, description, price, created_at
+    `;
+
+    const result = await pool.query(updateQuery, values);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    res.json({ success: true, service: result.rows[0] });
+  } catch (error) {
+    console.error('Update service error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete service (admin only)
+app.delete('/api/admin/services/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query('DELETE FROM services WHERE id = $1 RETURNING id, title', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Service not found' });
+    }
+
+    res.json({ success: true, message: 'Service deleted successfully' });
+  } catch (error) {
+    console.error('Delete service error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create new service (admin only)
+app.post('/api/admin/services', async (req, res) => {
+  try {
+    const { category, title, description, price } = req.body;
+
+    if (!category || !title) {
+      return res.status(400).json({ error: 'Category and title are required' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO services (category, title, description, price) VALUES ($1, $2, $3, $4) RETURNING id, category, title, description, price, created_at',
+      [category, title, description || null, price || null]
+    );
+
+    res.json({ success: true, service: result.rows[0] });
+  } catch (error) {
+    console.error('Create service error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Upload image to Cloudinary (admin only)
+app.post('/api/admin/upload-image', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      console.error('No file received in upload request');
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    console.log('Received file:', {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size
+    });
+
+    // Convert buffer to base64
+    const base64Image = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+
+    console.log('Uploading to Cloudinary...');
+    // Upload to Cloudinary
+    const uploadResult = await cloudinary.uploader.upload(base64Image, {
+      folder: 'lecture_project/courses',
+      resource_type: 'image'
+    });
+
+    console.log('Cloudinary upload successful:', uploadResult.secure_url);
+
+    res.json({ 
+      success: true, 
+      imageUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id
+    });
+  } catch (error) {
+    console.error('Image upload error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({ error: 'Failed to upload image: ' + error.message });
+  }
+});
+
+// Update course (admin only)
+app.put('/api/admin/courses/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, level, icon, illustration, banner_image_url, thumbnail_image_url } = req.body;
+
+    const updates = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (title !== undefined) {
+      updates.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (level !== undefined) {
+      updates.push(`level = $${paramCount++}`);
+      values.push(level);
+    }
+    if (icon !== undefined) {
+      updates.push(`icon = $${paramCount++}`);
+      values.push(icon);
+    }
+    if (illustration !== undefined) {
+      updates.push(`illustration = $${paramCount++}`);
+      values.push(illustration);
+    }
+
+    if (updates.length > 0) {
+      values.push(id);
+      const updateQuery = `
+        UPDATE Course_Service 
+        SET ${updates.join(', ')}
+        WHERE id = $${paramCount}
+        RETURNING id, title, level, icon, illustration, created_at
+      `;
+
+      await pool.query(updateQuery, values);
+    }
+
+    // Update course_details banner_image_url and/or thumbnail_image_url if provided
+    if (banner_image_url !== undefined || thumbnail_image_url !== undefined) {
+      // Check if course_details exists for this course
+      const detailsCheck = await pool.query(
+        'SELECT id FROM course_details WHERE course_id = $1',
+        [id]
+      );
+
+      if (detailsCheck.rows.length > 0) {
+        // Update existing course_details
+        const updates = [];
+        const values = [];
+        let paramCount = 1;
+
+        if (banner_image_url !== undefined) {
+          updates.push(`banner_image_url = $${paramCount++}`);
+          values.push(banner_image_url);
+        }
+        if (thumbnail_image_url !== undefined) {
+          updates.push(`thumbnail_image_url = $${paramCount++}`);
+          values.push(thumbnail_image_url);
+        }
+
+        if (updates.length > 0) {
+          updates.push(`updated_at = CURRENT_TIMESTAMP`);
+          values.push(id);
+          await pool.query(
+            `UPDATE course_details SET ${updates.join(', ')} WHERE course_id = $${paramCount}`,
+            values
+          );
+        }
+      } else {
+        // Create new course_details entry
+        await pool.query(
+          'INSERT INTO course_details (course_id, banner_image_url, thumbnail_image_url) VALUES ($1, $2, $3)',
+          [id, banner_image_url || null, thumbnail_image_url || null]
+        );
+      }
+    }
+
+    // Fetch updated course
+    const courseResult = await pool.query(
+      'SELECT id, title, level, icon, illustration, created_at FROM Course_Service WHERE id = $1',
+      [id]
+    );
+
+    if (courseResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    // Fetch course_details
+    const detailsResult = await pool.query(
+      'SELECT banner_image_url, thumbnail_image_url FROM course_details WHERE course_id = $1',
+      [id]
+    );
+
+    const course = courseResult.rows[0];
+    if (detailsResult.rows.length > 0) {
+      course.banner_image_url = detailsResult.rows[0].banner_image_url;
+      course.thumbnail_image_url = detailsResult.rows[0].thumbnail_image_url;
+    }
+
+    res.json({ success: true, course });
+  } catch (error) {
+    console.error('Update course error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create notifications table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS notifications (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255) NOT NULL REFERENCES users(email) ON DELETE CASCADE,
+    title VARCHAR(255),
+    message TEXT NOT NULL,
+    type VARCHAR(50) DEFAULT 'message',
+    sender_email VARCHAR(255) REFERENCES users(email) ON DELETE SET NULL,
+    read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating notifications table:', err));
+
+// Add sender_email column if it doesn't exist (for existing tables)
+pool.query(`
+  ALTER TABLE notifications 
+  ADD COLUMN IF NOT EXISTS sender_email VARCHAR(255) REFERENCES users(email) ON DELETE SET NULL
+`).catch(err => {
+  // Ignore error if column already exists
+  if (!err.message.includes('duplicate column')) {
+    console.error('Error adding sender_email column:', err);
+  }
+});
+
+// Create settings table if it doesn't exist
+pool.query(`
+  CREATE TABLE IF NOT EXISTS site_settings (
+    id SERIAL PRIMARY KEY,
+    setting_key VARCHAR(100) UNIQUE NOT NULL,
+    setting_value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+`).catch(err => console.error('Error creating site_settings table:', err));
+
+// Insert default settings if they don't exist
+pool.query(`
+  INSERT INTO site_settings (setting_key, setting_value)
+  VALUES 
+    ('site_name', 'MOODYCHIMP'),
+    ('tagline', 'CREATIVE STUDIO / GLOBAL'),
+    ('email_notifications', 'true'),
+    ('push_notifications', 'false')
+  ON CONFLICT (setting_key) DO NOTHING
+`).catch(err => console.error('Error inserting default settings:', err));
+
+// Get site settings (admin only)
+app.get('/api/admin/settings', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT setting_key, setting_value FROM site_settings');
+
+    const settings = {};
+    result.rows.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
+    });
+
+    res.json({ success: true, settings });
+  } catch (error) {
+    console.error('Get settings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update site settings (admin only)
+app.put('/api/admin/settings', async (req, res) => {
+  try {
+    const { settings } = req.body;
+
+    if (!settings || typeof settings !== 'object') {
+      return res.status(400).json({ error: 'Invalid settings object' });
+    }
+
+    const updates = [];
+    for (const [key, value] of Object.entries(settings)) {
+      await pool.query(
+        `INSERT INTO site_settings (setting_key, setting_value, updated_at)
+         VALUES ($1, $2, CURRENT_TIMESTAMP)
+         ON CONFLICT (setting_key) 
+         DO UPDATE SET setting_value = $2, updated_at = CURRENT_TIMESTAMP`,
+        [key, String(value)]
+      );
+    }
+
+    res.json({ success: true, message: 'Settings updated successfully' });
+  } catch (error) {
+    console.error('Update settings error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Send message/notification to user (admin only)
+app.post('/api/admin/send-message', async (req, res) => {
+  try {
+    const { userEmail, title, message, senderEmail } = req.body;
+
+    if (!userEmail || !message) {
+      return res.status(400).json({ error: 'User email and message are required' });
+    }
+
+    if (!senderEmail) {
+      return res.status(400).json({ error: 'Sender email is required' });
+    }
+
+    // Verify recipient user exists
+    const userCheck = await pool.query('SELECT id FROM users WHERE email = $1', [userEmail]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Insert notification into database with sender email
+    const result = await pool.query(
+      `INSERT INTO notifications (user_email, title, message, type, sender_email, read)
+       VALUES ($1, $2, $3, 'message', $4, FALSE)
+       RETURNING id, user_email, title, message, type, sender_email, read, created_at`,
+      [userEmail, title || null, message, senderEmail]
+    );
+
+    const notification = result.rows[0];
+    console.log('Message sent to user:', { userEmail, title, senderEmail, notificationId: notification.id });
+
+    res.json({ success: true, notification });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get user notifications
+app.get('/api/notifications/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    const result = await pool.query(
+      `SELECT n.id, n.title, n.message, n.type, n.read, n.created_at, n.sender_email,
+              u.username as sender_username, u.email as sender_email_full
+       FROM notifications n
+       LEFT JOIN users u ON n.sender_email = u.email
+       WHERE n.user_email = $1 
+       ORDER BY n.created_at DESC`,
+      [userEmail]
+    );
+
+    res.json({ success: true, notifications: result.rows });
+  } catch (error) {
+    console.error('Get notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Mark notification as read
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `UPDATE notifications 
+       SET read = TRUE 
+       WHERE id = $1 
+       RETURNING id, read`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Notification not found' });
+    }
+
+    res.json({ success: true, notification: result.rows[0] });
+  } catch (error) {
+    console.error('Mark notification as read error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Verify password endpoint
 app.post('/api/verify-password', async (req, res) => {
   try {
@@ -708,7 +1454,12 @@ app.get('/api/services/category/:category', async (req, res) => {
 // Get all course services (Learn services) endpoint
 app.get('/api/course-services', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM Course_Service ORDER BY id');
+    const result = await pool.query(`
+      SELECT cs.*, cd.banner_image_url, cd.thumbnail_image_url
+      FROM Course_Service cs
+      LEFT JOIN course_details cd ON cs.id = cd.course_id
+      ORDER BY cs.id
+    `);
 
     res.json({ success: true, services: result.rows });
   } catch (error) {

@@ -85,7 +85,9 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
             let thumbnail = null;
             let illustration = null;
             
-            thumbnail = fetchedItem.details?.banner_image_url || null;
+            // Use thumbnail_image_url instead of banner_image_url for other sections
+            // Check both top level and details object for thumbnail
+            thumbnail = fetchedItem.thumbnail_image_url || fetchedItem.details?.thumbnail_image_url || null;
             illustration = fetchedItem.illustration || fetchedItem.icon || null;
             
             // Only set thumbnail if it's a valid non-empty string

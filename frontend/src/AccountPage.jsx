@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import PasswordVerificationModal from './PasswordVerificationModal';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
@@ -8,7 +8,9 @@ import { ACHIEVEMENTS, getUnlockedAchievements, checkAchievements } from './achi
 const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme, setColorTheme }) => {
   const { t, locale, currency } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const [selectedOption, setSelectedOption] = useState('myacc');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userPassword, setUserPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
@@ -57,9 +59,23 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
       getUnlockedAchievements(userEmail).then(unlocked => {
         setUnlockedAchievements(unlocked);
       });
+      // Check if user is admin
+      checkAdminStatus();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedOption, userEmail]);
+
+  const checkAdminStatus = async () => {
+    if (!userEmail) return;
+    try {
+      const response = await fetch(`http://localhost:4000/api/admin/check/${encodeURIComponent(userEmail)}`);
+      const data = await response.json();
+      setIsAdmin(data.success && data.isAdmin);
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      setIsAdmin(false);
+    }
+  };
 
   // Save color theme to database when it changes
   useEffect(() => {
@@ -382,6 +398,14 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
           >
             {t('account.themes')}
           </button>
+          {isAdmin && (
+            <button
+              className="account-option admin-option"
+              onClick={() => navigate('/admin')}
+            >
+              ADMIN
+            </button>
+          )}
         </div>
       </div>
 

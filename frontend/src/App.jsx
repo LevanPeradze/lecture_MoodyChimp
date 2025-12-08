@@ -1,8 +1,22 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { motion } from 'motion/react';
+import { 
+  DndContext, 
+  DragOverlay, 
+  useSensor, 
+  useSensors, 
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  closestCenter,
+  useDroppable
+} from '@dnd-kit/core';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import logoImage from './assets/logo.png';
 import LoginModal from './LoginModal';
 import AccountPage from './AccountPage';
+import AdminPanel from './AdminPanel';
 import Questionnaire from './Questionnaire';
 import QuestionnaireResult from './QuestionnaireResult';
 import BookmarksPage from './BookmarksPage';
@@ -13,10 +27,16 @@ import BananaGame from './BananaGame';
 import NotificationBell from './NotificationBell';
 import RecentlyViewed from './RecentlyViewed';
 import Sidebar from './Sidebar';
+import DraggableServicesTitle from './DraggableServicesTitle';
+import HeaderDropZone from './HeaderDropZone';
+import ServicesDropTarget from './ServicesDropTarget';
 import { trackRecentlyViewed } from './DetailsPage';
+import './DraggableServicesTitle.css';
 import { useI18n } from './i18n/index.jsx';
 import { convertAndFormatPrice, formatPrice, convertCurrency, parsePrice } from './i18n/currency';
 import { checkAchievements } from './achievements';
+import { useWaveAnimation } from './hooks/useWaveAnimation';
+import WaveAnimatedElement from './components/WaveAnimatedElement';
 
 const highlightWords = [
   { text: 'creative', className: 'word-brutal' },
@@ -51,6 +71,49 @@ export default function App() {
   const [courseReviews, setCourseReviews] = useState({}); // Store reviews by course ID
   const [hoveredCourseId, setHoveredCourseId] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Drag and Drop states
+  const [servicesInHeader, setServicesInHeader] = useState(() => {
+    // Load from localStorage on mount
+    try {
+      return localStorage.getItem('moodychimp_services_in_header') === 'true';
+    } catch (error) {
+      console.error('Failed to load services header state:', error);
+      return false;
+    }
+  });
+  const [draggedServicePosition, setDraggedServicePosition] = useState(() => {
+    try {
+      const position = localStorage.getItem('moodychimp_services_position');
+      return position ? parseInt(position) : null;
+    } catch (error) {
+      return null;
+    }
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeId, setActiveId] = useState(null);
+  const [activeDropZone, setActiveDropZone] = useState(null);
+
+  // Wave animation hook
+  const { waveTriggered, triggerWave, getPushAnimation, cancelWave } = useWaveAnimation();
+
+  // DnD Kit sensors setup
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement before drag starts (prevents accidental drags)
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200, // 200ms delay for touch to distinguish from tap
+        tolerance: 5, // 5px tolerance for touch movement
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Filter states
   const [learnFilters, setLearnFilters] = useState(() => {
@@ -123,11 +186,12 @@ export default function App() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Don't show header on account/bookmarks/details/order pages
+  // Don't show header on account/bookmarks/details/order/admin pages
   const showHeader = !location.pathname.startsWith('/account') &&
     !location.pathname.startsWith('/bookmarks') &&
     !location.pathname.startsWith('/details') &&
-    !location.pathname.startsWith('/order');
+    !location.pathname.startsWith('/order') &&
+    !location.pathname.startsWith('/admin');
 
   // Track scroll direction and services section visibility for smooth search bar animation
   useEffect(() => {
@@ -252,42 +316,69 @@ export default function App() {
         setLoadingServices(true);
 
         // Fetch Learn services (course services)
-        const learnResponse = await fetch('http://localhost:4000/api/course-services');
-        const learnData = await learnResponse.json();
-        if (learnData.success) {
-          setLearnServices(learnData.services);
-        } else {
-          console.error('Failed to fetch Learn services:', learnData);
+        try {
+          const learnResponse = await fetch('http://localhost:4000/api/course-services');
+          if (learnResponse.ok) {
+            const learnData = await learnResponse.json();
+            if (learnData.success && Array.isArray(learnData.services)) {
+              setLearnServices(learnData.services);
+            } else {
+              console.error('Failed to fetch Learn services:', learnData);
+              setLearnServices([]); // Set empty array on failure
+            }
+          } else {
+            console.error('Failed to fetch Learn services: HTTP', learnResponse.status);
+            setLearnServices([]); // Set empty array on failure
+          }
+        } catch (learnErr) {
+          console.error('Error fetching Learn services:', learnErr);
+          setLearnServices([]); // Set empty array on error
         }
 
         // Fetch all Create services
-        const createResponse = await fetch('http://localhost:4000/api/services');
-        const createData = await createResponse.json();
-        if (createData.success) {
-          // Organize Create services by category
-          const organized = {};
-          const categories = new Set();
+        try {
+          const createResponse = await fetch('http://localhost:4000/api/services');
+          if (createResponse.ok) {
+            const createData = await createResponse.json();
+            if (createData.success && Array.isArray(createData.services)) {
+              // Organize Create services by category
+              const organized = {};
+              const categories = new Set();
 
-          createData.services.forEach(service => {
-            if (!organized[service.category]) {
-              organized[service.category] = [];
-              categories.add(service.category);
+              createData.services.forEach(service => {
+                if (service && service.category && service.title) {
+                  if (!organized[service.category]) {
+                    organized[service.category] = [];
+                    categories.add(service.category);
+                  }
+                  organized[service.category].push({
+                    id: service.id,
+                    title: service.title,
+                    description: service.description,
+                    price: service.price
+                  });
+                }
+              });
+
+              setCreateServices(organized);
+              setCreateCategories(Array.from(categories).sort());
+            } else {
+              console.error('Failed to fetch Create services:', createData);
+              setCreateServices({}); // Set empty object on failure
             }
-            organized[service.category].push({
-              id: service.id,
-              title: service.title,
-              description: service.description,
-              price: service.price
-            });
-          });
-
-          setCreateServices(organized);
-          setCreateCategories(Array.from(categories).sort());
-        } else {
-          console.error('Failed to fetch Create services:', createData);
+          } else {
+            console.error('Failed to fetch Create services: HTTP', createResponse.status);
+            setCreateServices({}); // Set empty object on failure
+          }
+        } catch (createErr) {
+          console.error('Error fetching Create services:', createErr);
+          setCreateServices({}); // Set empty object on error
         }
       } catch (err) {
         console.error('Error fetching services:', err);
+        // Ensure empty states are set
+        setLearnServices([]);
+        setCreateServices({});
       } finally {
         setLoadingServices(false);
       }
@@ -384,14 +475,14 @@ export default function App() {
       }
 
       // Fallback to localStorage if not logged in or database fetch failed
-      const saved = localStorage.getItem('bookmarkedCourses');
-      if (saved) {
-        try {
-          setBookmarkedCourses(JSON.parse(saved));
-        } catch (err) {
+    const saved = localStorage.getItem('bookmarkedCourses');
+    if (saved) {
+      try {
+        setBookmarkedCourses(JSON.parse(saved));
+      } catch (err) {
           console.error('Error loading bookmarked courses from localStorage:', err);
-        }
       }
+    }
     };
 
     loadBookmarks();
@@ -457,7 +548,7 @@ export default function App() {
               }
             });
           }
-        } else {
+      } else {
           // Remove bookmark from database
           await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}/${courseId}`, {
             method: 'DELETE',
@@ -648,6 +739,14 @@ export default function App() {
     }
   }, [searchQuery, selectedMainCategory, learnServices, createServices]);
 
+  const handleServiceClick = (service) => {
+    if (service.type === 'course') {
+      navigate(`/details/course/${service.id}`);
+    } else {
+      navigate(`/order/${service.id}`);
+    }
+  };
+
   // Handle Enter key in search - redirect if single result
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
@@ -822,8 +921,159 @@ export default function App() {
     }
   };
 
+  // Drag and Drop handlers
+  const handleDragStart = useCallback((event) => {
+    try {
+      // Cancel wave animation if active (user started dragging quickly)
+      cancelWave();
+      
+      setIsDragging(true);
+      setActiveId(event.active.id);
+      setActiveDropZone(null);
+    } catch (error) {
+      console.error('Drag start error:', error);
+      setIsDragging(false);
+    }
+  }, [cancelWave]);
+
+  const handleDragOver = useCallback((event) => {
+    const { over } = event;
+    if (over && over.id && over.id.startsWith('header-drop-')) {
+      setActiveDropZone(over.id);
+    } else {
+      setActiveDropZone(null);
+    }
+  }, []);
+
+  const handleDragEnd = useCallback((event) => {
+    try {
+      const { over, active } = event;
+      const isFromHeader = active.id === 'services-section-header';
+      
+      // Check if dropping in a header drop zone
+      if (over && over.id && over.id.startsWith('header-drop-')) {
+        // Extract position from drop zone ID (e.g., "header-drop-0" -> 0)
+        const position = parseInt(over.id.replace('header-drop-', ''));
+        
+        if (!isNaN(position)) {
+          // Dropping in header (either from services section or reordering within header)
+          setServicesInHeader(true);
+          setDraggedServicePosition(position);
+          
+          // Save to localStorage
+          try {
+            localStorage.setItem('moodychimp_services_in_header', 'true');
+            localStorage.setItem('moodychimp_services_position', position.toString());
+          } catch (error) {
+            if (error.name === 'QuotaExceededError') {
+              console.warn('LocalStorage quota exceeded');
+            } else {
+              console.error('Failed to save drag state:', error);
+            }
+          }
+        }
+      } else if (over && over.id === 'services-section-drop' && isFromHeader) {
+        // Dropping from header back to services section
+        setServicesInHeader(false);
+        setDraggedServicePosition(null);
+        
+        // Clear localStorage
+        try {
+          localStorage.setItem('moodychimp_services_in_header', 'false');
+          localStorage.removeItem('moodychimp_services_position');
+        } catch (error) {
+          console.error('Failed to clear drag state:', error);
+        }
+        
+        // Scroll to services section
+        if (servicesSectionRef.current) {
+          setTimeout(() => {
+            servicesSectionRef.current?.scrollIntoView({ 
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }, 100);
+        }
+      }
+      
+      setIsDragging(false);
+      setActiveId(null);
+      setActiveDropZone(null);
+    } catch (error) {
+      console.error('Drag end error:', error);
+      setIsDragging(false);
+      setActiveId(null);
+      setActiveDropZone(null);
+    }
+  }, []);
+
+  const handleDragCancel = useCallback(() => {
+    setIsDragging(false);
+    setActiveId(null);
+    setActiveDropZone(null);
+  }, []);
+
+  const handleReturnToDefault = useCallback(() => {
+    try {
+      setServicesInHeader(false);
+      setDraggedServicePosition(null);
+      
+      // Clear localStorage
+      try {
+        localStorage.setItem('moodychimp_services_in_header', 'false');
+        localStorage.removeItem('moodychimp_services_position');
+      } catch (error) {
+        console.error('Failed to clear drag state:', error);
+      }
+      
+      // Scroll to services section
+      if (servicesSectionRef.current) {
+        servicesSectionRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to return services to default:', error);
+    }
+  }, []);
+
+  // Navigate to services section with category pre-selected
+  const handleNavigateToServices = useCallback((category) => {
+    if (servicesInHeader) {
+      // Scroll to services section
+      if (servicesSectionRef.current) {
+        servicesSectionRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }
+      // Set category after scroll
+      setTimeout(() => {
+        setSelectedMainCategory(category);
+        if (category === 'Create') {
+          setSelectedCreateCategory(null);
+        }
+      }, 300);
+    } else {
+      // Already in services section
+      setSelectedMainCategory(category);
+      if (category === 'Create') {
+        setSelectedCreateCategory(null);
+      }
+    }
+  }, [servicesInHeader]);
+
   return (
-    <Routes>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
+      onDragCancel={handleDragCancel}
+    >
+      <Routes>
       <Route path="/details/:type/:id" element={
         <DetailsPage
           isLoggedIn={isLoggedIn}
@@ -861,6 +1111,12 @@ export default function App() {
           setColorTheme={setColorTheme}
         />
       } />
+      <Route path="/admin" element={
+        <AdminPanel
+          userEmail={userEmail}
+          onBack={() => navigate('/account')}
+        />
+      } />
       <Route path="/bookmarks" element={
         <BookmarksPage
           bookmarkedCourses={bookmarkedCourses}
@@ -871,6 +1127,7 @@ export default function App() {
       } />
       <Route path="*" element={
         <div className="moodychimp">
+          <div className="aria-live-region" aria-live="polite" aria-atomic="true" style={{ position: 'absolute', left: '-10000px', width: '1px', height: '1px', overflow: 'hidden' }}></div>
           {showHeader && (
             <header className="mc-header">
               <button
@@ -891,11 +1148,99 @@ export default function App() {
                     {t('header.login')}
                   </a>
                 )}
+                
+                {/* Drop zone 0: Left of About Us */}
+                <HeaderDropZone 
+                  id={0}
+                  position={0}
+                  isOver={activeDropZone === 'header-drop-0'}
+                />
+                
+                {/* Services at position 0 (left of About Us) */}
+                {servicesInHeader && draggedServicePosition === 0 && (
+                  <DraggableServicesTitle
+                    isInHeader={true}
+                    learnServices={learnServices}
+                    createServices={createServices}
+                    onServiceClick={handleServiceClick}
+                    onReturnToDefault={handleReturnToDefault}
+                    onNavigateToServices={handleNavigateToServices}
+                  >
+                    Services
+                  </DraggableServicesTitle>
+                )}
+                
                 <a href="#about">{t('header.about')}</a>
+                
+                {/* Drop zone 1: Between About Us and Contact */}
+                <HeaderDropZone 
+                  id={1}
+                  position={1}
+                  isOver={activeDropZone === 'header-drop-1'}
+                />
+                
+                {/* Services at position 1 (between About Us and Contact) */}
+                {servicesInHeader && draggedServicePosition === 1 && (
+                  <DraggableServicesTitle
+                    isInHeader={true}
+                    learnServices={learnServices}
+                    createServices={createServices}
+                    onServiceClick={handleServiceClick}
+                    onReturnToDefault={handleReturnToDefault}
+                    onNavigateToServices={handleNavigateToServices}
+                  >
+                    Services
+                  </DraggableServicesTitle>
+                )}
+                
                 <a href="#contact">{t('header.contact')}</a>
+                
+                {/* Drop zone 2: Between Contact and Instagram */}
+                <HeaderDropZone 
+                  id={2}
+                  position={2}
+                  isOver={activeDropZone === 'header-drop-2'}
+                />
+                
+                {/* Services at position 2 (between Contact and Instagram) */}
+                {servicesInHeader && draggedServicePosition === 2 && (
+                  <DraggableServicesTitle
+                    isInHeader={true}
+                    learnServices={learnServices}
+                    createServices={createServices}
+                    onServiceClick={handleServiceClick}
+                    onReturnToDefault={handleReturnToDefault}
+                    onNavigateToServices={handleNavigateToServices}
+                  >
+                    Services
+                  </DraggableServicesTitle>
+                )}
+                
                 <a href="https://instagram.com" target="_blank" rel="noreferrer">
                   {t('header.instagram')}
                 </a>
+                
+                {/* Drop zone 3: Right of Instagram */}
+                <HeaderDropZone 
+                  id={3}
+                  position={3}
+                  isOver={activeDropZone === 'header-drop-3'}
+                />
+                
+                {/* Services at position 3 (right of Instagram) */}
+                {servicesInHeader && draggedServicePosition === 3 && (
+                  <DraggableServicesTitle
+                    isInHeader={true}
+                    learnServices={learnServices}
+                    createServices={createServices}
+                    onServiceClick={handleServiceClick}
+                    onReturnToDefault={handleReturnToDefault}
+                    onNavigateToServices={handleNavigateToServices}
+                  >
+                    Services
+                  </DraggableServicesTitle>
+                )}
+                
                 {isServicesSectionVisible && (
                   <div className={`search-container ${isSearchExpanded ? 'expanded' : 'collapsed'}`}>
                     <input
@@ -909,7 +1254,7 @@ export default function App() {
                       onBlur={() => setIsSearchFocused(false)}
                       aria-label={t('header.searchAriaLabel')}
                     />
-                    <span className="search-icon">🔍</span>
+                    <span className="search-icon">⌕</span>
                     {searchQuery && (
                       <button
                         className="search-clear-btn"
@@ -1008,28 +1353,59 @@ export default function App() {
               <RecentlyViewed />
             </section>
 
-            <section id="services" className="services" ref={servicesSectionRef}>
-              <h2>{t('services.title')}</h2>
+            <section 
+              id="services" 
+              className="services" 
+              ref={servicesSectionRef}
+            >
+              {/* Drop target for returning from header */}
+              <ServicesDropTarget 
+                servicesInHeader={servicesInHeader}
+                learnServices={learnServices}
+                createServices={createServices}
+                onServiceClick={handleServiceClick}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+                waveTriggered={waveTriggered}
+                triggerWave={triggerWave}
+                getPushAnimation={getPushAnimation}
+                t={t}
+              />
 
+              {/* Only show services content when NOT in header */}
+              {!servicesInHeader && (
+              <div className="services-content-wrapper">
               <div className="services-main-categories">
-                <button
-                  className={`service-category-btn ${selectedMainCategory === 'Learn' ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedMainCategory('Learn');
-                    setSelectedCreateCategory(null);
-                  }}
+                <WaveAnimatedElement
+                  waveTriggered={waveTriggered}
+                  getPushAnimation={getPushAnimation}
+                  elementId="learn-btn"
                 >
-                  {t('services.learn')}
-                </button>
-                <button
-                  className={`service-category-btn ${selectedMainCategory === 'Create' ? 'active' : ''}`}
-                  onClick={() => {
-                    setSelectedMainCategory('Create');
-                    setSelectedCreateCategory(null);
-                  }}
+                  <button
+                    className={`service-category-btn ${selectedMainCategory === 'Learn' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedMainCategory('Learn');
+                      setSelectedCreateCategory(null);
+                    }}
+                  >
+                    {t('services.learn')}
+                  </button>
+                </WaveAnimatedElement>
+                <WaveAnimatedElement
+                  waveTriggered={waveTriggered}
+                  getPushAnimation={getPushAnimation}
+                  elementId="create-btn"
                 >
-                  {t('services.create')}
-                </button>
+                  <button
+                    className={`service-category-btn ${selectedMainCategory === 'Create' ? 'active' : ''}`}
+                    onClick={() => {
+                      setSelectedMainCategory('Create');
+                      setSelectedCreateCategory(null);
+                    }}
+                  >
+                    {t('services.create')}
+                  </button>
+                </WaveAnimatedElement>
               </div>
 
               {selectedMainCategory === 'Learn' && (
@@ -1041,7 +1417,12 @@ export default function App() {
                   ) : (
                     <div className="learn-services-container">
                       {/* Filters Section */}
-                      <div className="filters-panel">
+                      <WaveAnimatedElement
+                        waveTriggered={waveTriggered}
+                        getPushAnimation={getPushAnimation}
+                        elementId="filters-panel"
+                      >
+                        <div className="filters-panel">
                         <div className="filters-header">
                           <h3 className="filters-title">{t('services.filters.title')}</h3>
                           <button className="filters-reset-btn" onClick={resetLearnFilters}>
@@ -1096,6 +1477,7 @@ export default function App() {
                           )}
                         </div>
                       </div>
+                      </WaveAnimatedElement>
 
                       <div className="learn-services-grid">
                         {getFilteredLearnServices().map((service) => {
@@ -1109,14 +1491,19 @@ export default function App() {
                           const isHovered = hoveredCourseId === service.id;
 
                           return (
-                            <div
+                            <WaveAnimatedElement
                               key={courseId}
-                              className="learn-service-item"
-                              onClick={() => navigate(`/details/course/${courseId}`)}
-                              onMouseEnter={() => setHoveredCourseId(service.id)}
-                              onMouseLeave={() => setHoveredCourseId(null)}
-                              style={{ cursor: 'pointer' }}
+                              waveTriggered={waveTriggered}
+                              getPushAnimation={getPushAnimation}
+                              elementId={`service-${courseId}`}
                             >
+                              <div
+                                className="learn-service-item"
+                                onClick={() => navigate(`/details/course/${courseId}`)}
+                                onMouseEnter={() => setHoveredCourseId(service.id)}
+                                onMouseLeave={() => setHoveredCourseId(null)}
+                                style={{ cursor: 'pointer' }}
+                              >
                               {/* Reviews Hover Box */}
                               {isHovered && reviews && reviews.totalReviews > 0 && (
                                 <div className="course-reviews-hover">
@@ -1142,13 +1529,29 @@ export default function App() {
                               >
                                 {isBookmarked ? '❤️' : '🤍'}
                               </button>
-                              <div className="learn-service-illustration">{service.illustration || service.icon}</div>
+                              {service.thumbnail_image_url ? (
+                                <div className="learn-service-banner">
+                                  <img 
+                                    src={service.thumbnail_image_url} 
+                                    alt={service.title}
+                                    className="learn-service-banner-img"
+                                    onError={(e) => {
+                                      // Fallback to emoji if image fails to load
+                                      const parent = e.target.parentElement;
+                                      parent.innerHTML = `<div class="learn-service-illustration">${service.illustration || service.icon || '📚'}</div>`;
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="learn-service-illustration">{service.illustration || service.icon || '📚'}</div>
+                              )}
                               <div className="learn-service-content">
                                 <h3 className="learn-service-title">{service.title}</h3>
                                 <span className="learn-service-level">{service.level}</span>
                                 <span className="learn-service-price">{formatPrice(convertCurrency(99, currency), currency, language)}</span>
                               </div>
                             </div>
+                            </WaveAnimatedElement>
                           );
                         })}
                       </div>
@@ -1277,6 +1680,8 @@ export default function App() {
                     </>
                   )}
                 </div>
+              )}
+              </div>
               )}
             </section>
 
@@ -1470,7 +1875,20 @@ export default function App() {
           <BananaGame userEmail={userEmail} />
         </div>
       } />
-    </Routes>
+      </Routes>
+      <DragOverlay
+        style={{
+          zIndex: 10002,
+          position: 'fixed',
+        }}
+      >
+        {(isDragging && (activeId === 'services-section' || activeId === 'services-section-header')) ? (
+          <div className="drag-overlay-services">
+            <span className="services-module-text">Services</span>
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
 

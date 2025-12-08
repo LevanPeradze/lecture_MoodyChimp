@@ -1,0 +1,176 @@
+.create-learn-dropdown {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-primary);
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10001 !important;
+  min-width: 200px;
+  max-width: 300px;
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  animation: popup-unfold 160ms ease-out;
+  transform-origin: top left;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  /* Ensure it stays fixed relative to viewport */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.create-learn-dropdown.expanded {
+  display: block;
+}
+
+.create-learn-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-bottom: 2px solid var(--border-primary);
+}
+
+.create-learn-option {
+  padding: 0.75rem 1rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--border-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.create-learn-option:last-of-type {
+  border-bottom: 2px solid var(--border-primary);
+}
+
+.create-learn-option:hover,
+.create-learn-option:focus {
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+.create-learn-option.active {
+  background: var(--accent-primary);
+  color: var(--text-on-accent, #fff);
+}
+
+.create-learn-services-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.create-learn-service-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.create-learn-service-item:last-child {
+  border-bottom: none;
+}
+
+.create-learn-service-item:hover,
+.create-learn-service-item:focus {
+  background: var(--bg-tertiary);
+  outline: none;
+}
+
+.create-learn-service-title {
+  font-weight: 500;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.create-learn-empty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--text-quaternary);
+  font-size: 0.9rem;
+}
+
+/* Ensure dropdown in header is above everything */
+.draggable-services-title-container.in-header .create-learn-dropdown {
+  z-index: 10001 !important;
+  position: fixed !important;
+}
+
+/* Make sure dropdown is visible when rendered */
+.create-learn-dropdown {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Animation */
+@keyframes popup-unfold {
+  from {
+    opacity: 0;
+    transform: scaleY(0.8) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scaleY(1) translateY(0);
+  }
+}
+
+/* Accessibility */
+.create-learn-option:focus-visible,
+.create-learn-service-item:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: -2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .create-learn-dropdown {
+    min-width: 180px;
+    max-width: 250px;
+  }
+  
+  .create-learn-option {
+    padding: 0.65rem 0.9rem;
+    font-size: 0.9rem;
+  }
+  
+  .create-learn-service-item {
+    padding: 0.65rem 0.9rem;
+  }
+  
+  .create-learn-service-title {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .create-learn-dropdown {
+    min-width: 160px;
+    max-width: 200px;
+  }
+  
+  .create-learn-option {
+    padding: 0.6rem 0.75rem;
+    font-size: 0.85rem;
+  }
+  
+  .create-learn-service-item {
+    padding: 0.6rem 0.75rem;
+  }
+  
+  .create-learn-service-title {
+    font-size: 0.8rem;
+  }
+}
+

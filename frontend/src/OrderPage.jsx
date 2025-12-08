@@ -56,7 +56,8 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
             let illustration = null;
             
             if (orderType === 'course') {
-              thumbnail = item.details?.banner_image_url || null;
+              // Use thumbnail_image_url instead of banner_image_url for courses
+              thumbnail = item.thumbnail_image_url || item.details?.thumbnail_image_url || null;
               illustration = item.illustration || item.icon || null;
             } else {
               thumbnail = item.details?.banner_image_url || null;

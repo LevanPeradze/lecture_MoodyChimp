@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useI18n } from './i18n/index.jsx';
 import './NotificationBell.css';
 
@@ -25,20 +25,70 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const isInitialMount = useRef(true);
 
-  // Load notifications from LocalStorage on mount (only if not already loaded)
+  // Function to fetch messages from database
+  const fetchMessages = useCallback(async () => {
+    if (!userEmail) return;
+
+    // Load achievement notifications from localStorage
+    const saved = localStorage.getItem('chimpNotifications');
+    let achievementNotifications = [];
+    if (saved) {
+      try {
+        const loadedNotifications = JSON.parse(saved);
+        achievementNotifications = loadedNotifications.filter(n => n.type === 'achievement');
+      } catch (err) {
+        console.error('Error loading notifications:', err);
+      }
+    }
+
+    try {
+      const response = await fetch(`http://localhost:4000/api/notifications/${encodeURIComponent(userEmail)}`);
+      const data = await response.json();
+      
+      if (data.success && data.notifications) {
+        // Convert database notifications to the format expected by the component
+        const dbMessages = data.notifications.map(n => {
+          const senderName = n.sender_username || n.sender_email || 'Admin';
+          const messageText = n.title ? `${n.title}: ${n.message}` : n.message;
+          return {
+            id: `msg-${n.id}`,
+            message: `${messageText} (by: ${senderName})`,
+            read: n.read,
+            timestamp: n.created_at,
+            type: 'message'
+          };
+        });
+
+        // Merge achievement notifications with messages
+        const allNotifications = [...achievementNotifications, ...dbMessages];
+        setNotifications(allNotifications);
+
+        // Save to localStorage (only achievements)
+        localStorage.setItem('chimpNotifications', JSON.stringify(achievementNotifications));
+      } else {
+        // If no messages, just use achievement notifications
+        setNotifications(achievementNotifications);
+      }
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+      // On error, just use achievement notifications
+      setNotifications(achievementNotifications);
+    }
+  }, [userEmail]);
+
+  // Load notifications from LocalStorage and database on mount and when userEmail changes
   useEffect(() => {
-    if (typeof window !== 'undefined' && isInitialMount.current) {
+    if (typeof window !== 'undefined' && isInitialMount.current && userEmail) {
+      fetchMessages();
+      isInitialMount.current = false;
+    } else if (typeof window !== 'undefined' && isInitialMount.current) {
+      // No user email, just load from localStorage
       const saved = localStorage.getItem('chimpNotifications');
       if (saved) {
         try {
           const loadedNotifications = JSON.parse(saved);
-          // Filter to only achievement notifications and set them
           const achievementOnly = loadedNotifications.filter(n => n.type === 'achievement');
           setNotifications(achievementOnly);
-          // Update storage if there were non-achievement notifications
-          if (achievementOnly.length !== loadedNotifications.length) {
-            localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
-          }
         } catch (err) {
           console.error('Error loading notifications:', err);
         }
@@ -52,24 +102,45 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
       if (saved) {
         try {
           const loadedNotifications = JSON.parse(saved);
-          // Filter to only achievement notifications
           const achievementOnly = loadedNotifications.filter(n => n.type === 'achievement');
-          setNotifications(achievementOnly);
-          // Update storage if there were non-achievement notifications
-          if (achievementOnly.length !== loadedNotifications.length) {
-            localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
-          }
+          
+          // Merge with existing messages
+          setNotifications(prev => {
+            const existingMessages = prev.filter(n => n.type === 'message');
+            return [...achievementOnly, ...existingMessages];
+          });
         } catch (err) {
           console.error('Error loading notifications:', err);
         }
       }
     };
+
+    // Listen for new messages
+    const handleNewMessage = () => {
+      if (userEmail) {
+        fetchMessages();
+      }
+    };
     
     window.addEventListener('achievementsUpdated', handleAchievementsUpdated);
+    window.addEventListener('newMessage', handleNewMessage);
+    
     return () => {
       window.removeEventListener('achievementsUpdated', handleAchievementsUpdated);
+      window.removeEventListener('newMessage', handleNewMessage);
     };
-  }, []);
+  }, [userEmail, fetchMessages]);
+
+  // Poll for new notifications every 15 seconds
+  useEffect(() => {
+    if (!userEmail) return;
+
+    const interval = setInterval(() => {
+      fetchMessages();
+    }, 15000); // Check every 15 seconds
+
+    return () => clearInterval(interval);
+  }, [userEmail, fetchMessages]);
 
   // Save notifications to LocalStorage whenever they change (only after initial load)
   useEffect(() => {
@@ -102,10 +173,9 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
     }
   }, [showDropdown]);
 
-  // Filter notifications to only show achievements
-  const achievementNotifications = notifications.filter(n => n.type === 'achievement');
-
-  const unreadCount = achievementNotifications.filter(n => !n.read).length;
+  // Show all notifications (achievements and messages)
+  const allNotifications = notifications;
+  const unreadCount = allNotifications.filter(n => !n.read).length;
 
   const handleBellClick = () => {
     if (bellRef.current) {
@@ -115,21 +185,56 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
         right: window.innerWidth - rect.right
       });
     }
+    
+    // Refresh notifications when opening the dropdown
+    if (!showDropdown && userEmail) {
+      fetchMessages();
+    }
+    
     setShowDropdown(!showDropdown);
   };
 
-  const handleNotificationClick = (notificationId) => {
+  const handleNotificationClick = async (notificationId) => {
+    // Update local state immediately
     setNotifications(prev =>
       prev.map(n =>
         n.id === notificationId ? { ...n, read: true } : n
       )
     );
+
+    // If it's a message notification, mark it as read in the database
+    if (notificationId.startsWith('msg-')) {
+      const dbId = notificationId.replace('msg-', '');
+      try {
+        await fetch(`http://localhost:4000/api/notifications/${dbId}/read`, {
+          method: 'PUT'
+        });
+      } catch (err) {
+        console.error('Error marking notification as read:', err);
+      }
+    }
   };
 
-  const handleMarkAllRead = () => {
+  const handleMarkAllRead = async () => {
+    // Update local state immediately
     setNotifications(prev =>
       prev.map(n => ({ ...n, read: true }))
     );
+
+    // Mark all message notifications as read in the database
+    if (userEmail) {
+      try {
+        const messageNotifications = notifications.filter(n => n.id.startsWith('msg-') && !n.read);
+        for (const notification of messageNotifications) {
+          const dbId = notification.id.replace('msg-', '');
+          await fetch(`http://localhost:4000/api/notifications/${dbId}/read`, {
+            method: 'PUT'
+          });
+        }
+      } catch (err) {
+        console.error('Error marking notifications as read:', err);
+      }
+    }
   };
 
   const handleClearAll = () => {
@@ -176,7 +281,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
                   {t('notifications.markAllRead')}
                 </button>
               )}
-              {achievementNotifications.length > 0 && (
+              {allNotifications.length > 0 && (
                 <button
                   className="notification-clear-all"
                   onClick={handleClearAll}
@@ -189,12 +294,12 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
           </div>
 
           <div className="notification-list">
-            {achievementNotifications.length === 0 ? (
+            {allNotifications.length === 0 ? (
               <div className="notification-empty">
                 {t('notifications.empty')}
               </div>
             ) : (
-              achievementNotifications
+              allNotifications
                 .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
                 .map((notification) => (
                   <div
