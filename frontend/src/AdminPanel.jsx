@@ -421,7 +421,7 @@ const ContentManagerSection = () => {
 
   const handleAdd = async () => {
     try {
-      const response = await fetch('getApiUrl('api/admin/services', {
+      const response = await fetch(getApiUrl('api/admin/services'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)

@@ -287,7 +287,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`getApiUrl('api/user/${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`), {
         method: 'DELETE',
       });
 
