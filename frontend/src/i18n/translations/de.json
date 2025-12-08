@@ -1,0 +1,436 @@
+{
+  "header": {
+    "login": "Anmelden",
+    "about": "Über uns",
+    "contact": "Kontakt",
+    "instagram": "Instagram",
+    "savedStuff": "Gespeichert",
+    "account": "Konto",
+    "searchPlaceholder": "Kurse & Services suchen...",
+    "searchAriaLabel": "Nach Kursen und Services suchen",
+    "clearSearch": "Suche löschen"
+  },
+  "sidebar": {
+    "home": "Startseite",
+    "myOrders": "Meine Bestellungen",
+    "savedCourses": "Gespeicherte Kurse",
+    "viewNotes": "Meine Notizen",
+    "notes": {
+      "title": "Notizen",
+      "placeholder": "Schreiben Sie hier Ihre persönlichen Notizen...",
+      "save": "Speichern",
+      "saved": "Gespeichert!",
+      "saveError": "Fehler beim Speichern der Notizen",
+      "myNotes": "Meine Notizen",
+      "noNotes": "Sie haben noch keine gespeicherten Notizen.",
+      "words": "Wörter",
+      "wordLimitExceeded": "Notiz überschreitet das Limit von 50 Wörtern",
+      "emptyNote": "Notiz darf nicht leer sein",
+      "clearAll": "Alle Notizen löschen",
+      "confirmClear": "Sind Sie sicher, dass Sie alle Notizen löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "cleared": "Alle Notizen gelöscht!",
+      "clearError": "Fehler beim Löschen der Notizen"
+    }
+  },
+  "hero": {
+    "label": "kreatives Studio / global",
+    "services": "Dienstleistungen",
+    "contact": "Kontakt"
+  },
+  "services": {
+    "title": "Dienstleistungen",
+    "learn": "Lernen",
+    "create": "Erstellen",
+    "loading": "Dienstleistungen werden geladen...",
+    "noServices": "Keine Dienstleistungen verfügbar.",
+    "filters": {
+      "title": "Filter",
+      "reset": "Zurücksetzen",
+      "level": "Niveau",
+      "allLevels": "Alle Niveaus",
+      "beginner": "Anfänger",
+      "intermediate": "Mittelstufe",
+      "advanced": "Fortgeschritten",
+      "priceRange": "Preisspanne",
+      "allPrices": "Alle Preise",
+      "under50": "Unter 50€",
+      "50to100": "50€ - 100€",
+      "100to200": "100€ - 200€",
+      "over200": "Über 200€",
+      "showing": "Zeige",
+      "of": "von",
+      "courses": "Kurse",
+      "services": "Dienstleistungen",
+      "matching": "passend zu"
+    },
+    "questionnaire": {
+      "notSure": "nicht sicher?",
+      "findOut": "herausfinden!"
+    }
+  },
+  "about": {
+    "title": "Über uns",
+    "description": "MoodyChimp ist ein kreatives Studio, betrieben von zwei Generalisten, die es lieben, Code, Kameras und Skizzenbücher zu mischen. Wir liefern fokussierte Erfahrungen, halten die Dokumentation kompakt und lassen Raum für spielerische Entdeckungen."
+  },
+  "footer": {
+    "email": "E-Mail",
+    "phone": "Telefon",
+    "instagram": "Instagram"
+  },
+  "login": {
+    "welcome": "Willkommen",
+    "welcomeMessage": "Melden Sie sich an, um auf Ihr Konto zuzugreifen, oder erstellen Sie ein neues, um zu beginnen.",
+    "signIn": "Anmelden",
+    "signUp": "Registrieren",
+    "maybeLater": "Vielleicht später",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "createPassword": "Passwort erstellen",
+    "reenterPassword": "Passwort erneut eingeben",
+    "signingIn": "Anmelden...",
+    "creatingAccount": "Konto wird erstellt...",
+    "passwordsDoNotMatch": "Passwörter stimmen nicht überein",
+    "signUpFailed": "Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.",
+    "invalidEmailPassword": "Ungültige E-Mail oder Passwort",
+    "networkError": "Netzwerkfehler. Bitte versuchen Sie es erneut."
+  },
+  "account": {
+    "back": "← Zurück",
+    "myAcc": "Mein Konto",
+    "editProfile": "Profil bearbeiten",
+    "myOrders": "Meine Bestellungen",
+    "myAccount": "Mein Konto",
+    "achievements": "Errungenschaften",
+    "achievementLocked": "Gesperrt - Vervollständige Aktionen zum Freischalten",
+    "deleteAccount": "Konto löschen",
+    "deleteConfirmTitle": "Konto löschen",
+    "deleteConfirmMessage": "Sind Sie sicher, dass Sie Ihr Konto löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden. Alle Ihre Daten werden dauerhaft gelöscht.",
+    "deleteConfirm": "Löschen",
+    "cancel": "Abbrechen",
+    "deleting": "Wird gelöscht...",
+    "deleteError": "Fehler beim Löschen des Kontos. Bitte versuchen Sie es erneut.",
+    "email": "E-Mail",
+    "password": "Passwort",
+    "logOut": "Abmelden",
+    "learn": "Lernen",
+    "create": "Erstellen",
+    "purchasedCourses": "Gekaufte Kurse",
+    "serviceOrders": "Dienstleistungsbestellungen",
+    "noCourses": "Noch keine Kurse gekauft.",
+    "noOrders": "Noch keine Dienstleistungsbestellungen.",
+    "enrolled": "Eingeschrieben:",
+    "ordered": "Bestellt:",
+    "status": "Status:",
+    "completed": "Abgeschlossen:",
+    "completion": "Fertigstellung:",
+    "daysRemaining": "Tage verbleibend",
+    "dayRemaining": "Tag verbleibend",
+    "dueToday": "Fällig heute",
+    "selectSection": "Wählen Sie oben einen Abschnitt aus, um Ihre Bestellungen anzuzeigen",
+    "loadingOrders": "Bestellungen werden geladen...",
+    "username": "Benutzername",
+    "profileTitle": "Profiltitel",
+    "profileAvatar": "Profilavatar",
+    "chooseImage": "Bild auswählen",
+    "saveChanges": "Änderungen speichern",
+    "saving": "Speichern...",
+    "profileUpdated": "Profil erfolgreich aktualisiert!",
+    "profileUpdateFailed": "Profil konnte nicht aktualisiert werden",
+    "enterUsername": "Benutzername eingeben",
+    "selectTitle": "Titel auswählen",
+    "themes": "Themen",
+    "colorThemes": "Farbthemen",
+    "themesDescription": "Wählen Sie ein Farbthema, um Ihre Erfahrung zu personalisieren. Jedes Thema hat seinen eigenen Hell- und Dunkelmodus.",
+    "themeDefault": "Default",
+    "themeNeon": "Neon",
+    "themeVintage": "Vintage"
+  },
+  "details": {
+    "loading": "Laden...",
+    "error": "Element nicht gefunden",
+    "goBack": "Zurück",
+    "back": "← Zurück",
+    "next": "Weiter →",
+    "description": "Beschreibung",
+    "whatYoullLearn": "Was Sie lernen werden",
+    "whatYoullGet": "Was Sie erhalten",
+    "difficultyLevel": "Schwierigkeitsgrad",
+    "estimatedDuration": "Geschätzte Dauer",
+    "requirements": "Anforderungen",
+    "courseOutline": "Kursübersicht",
+    "prerequisites": "Voraussetzungen",
+    "orderNow": "Jetzt bestellen",
+    "loginPrompt": "Bitte melden Sie sich an, um eine Bestellung aufzugeben",
+    "goToLogin": "Zur Anmeldung gehen"
+  },
+  "order": {
+    "back": "← Zurück",
+    "enrollInCourse": "In Kurs einschreiben",
+    "placeOrder": "Ihre Bestellung aufgeben",
+    "loading": "Laden",
+    "error": "Dienstleistung nicht gefunden",
+    "goBack": "Zurück",
+    "selectPackage": "Paket auswählen",
+    "basic": "Basis",
+    "basicDesc": "Standardlieferung, 1 Überarbeitung",
+    "standard": "Standard",
+    "standardDesc": "Schnellere Lieferung, 2 Überarbeitungen",
+    "premium": "Premium",
+    "premiumDesc": "Schnellste Lieferung, unbegrenzte Überarbeitungen",
+    "deliveryTime": "Lieferzeit",
+    "standardDelivery": "Standard (5-7 Tage) - Inklusive",
+    "fastDelivery": "Schnell (3-5 Tage) - Premium",
+    "veryFastDelivery": "Sehr schnell (1-3 Tage) - Premium+",
+    "additionalRevisions": "Zusätzliche Überarbeitungen",
+    "revisionsIncluded": "Überarbeitungen (inklusive)",
+    "revisionIncluded": "Überarbeitung (inklusive)",
+    "additionalRevision": "zusätzliche Überarbeitung",
+    "additionalRevisionsPlural": "zusätzliche Überarbeitungen",
+    "specialInstructions": "Besondere Anweisungen",
+    "instructionsPlaceholder": "Erzählen Sie uns von Ihrem Projekt, spezifischen Anforderungen, Stilpräferenzen usw.",
+    "placingOrder": "Bestellung wird aufgegeben...",
+    "enrolling": "Einschreiben...",
+    "enrollNow": "Jetzt einschreiben",
+    "orderSummary": "Bestellübersicht",
+    "enrollmentSummary": "Einschreibungsübersicht",
+    "service": "Dienstleistung:",
+    "course": "Kurs:",
+    "package": "Paket:",
+    "delivery": "Lieferung:",
+    "level": "Niveau:",
+    "revisions": "Überarbeitungen:",
+    "revision": "Überarbeitung",
+    "subtotal": "Zwischensumme:",
+    "achievementDiscount": "Errungenschaftsrabatt (30%):",
+    "total": "Gesamt:",
+    "whatHappensNext": "Was passiert als Nächstes?",
+    "orderReview": "Ihre Bestellung wird überprüft",
+    "confirmationEmail": "Sie erhalten eine Bestätigungs-E-Mail",
+    "workBegins": "Die Arbeit beginnt basierend auf Ihrer ausgewählten Lieferzeit",
+    "trackProgress": "Sie können den Fortschritt in Ihrem Konto verfolgen",
+    "enrollmentConfirmed": "Ihre Einschreibung wird bestätigt",
+    "accessMaterials": "Sie erhalten Zugang zu Kursmaterialien",
+    "startLearning": "Beginnen Sie in Ihrem eigenen Tempo zu lernen",
+    "trackProgressAccount": "Verfolgen Sie Ihren Fortschritt in Ihrem Konto",
+    "orderSuccess": "Bestellung erfolgreich aufgegeben!",
+    "enrollmentSuccess": "Einschreibung erfolgreich! Sie haben jetzt Zugang zum Kurs.",
+    "orderFailed": "Bestellung konnte nicht aufgegeben werden",
+    "enrollmentFailed": "Einschreibung in Kurs fehlgeschlagen",
+    "errorPlacingOrder": "Fehler beim Aufgeben der Bestellung. Bitte versuchen Sie es erneut.",
+    "days": "Tage",
+    "day": "Tag"
+  },
+  "orderAI": {
+    "title": "KI-Empfehlung",
+    "placeholder": "Beschreiben Sie, was Sie erstellen möchten oder wobei Sie Hilfe benötigen...",
+    "getRecommendation": "Empfehlung erhalten",
+    "loading": "Empfehlung wird abgerufen...",
+    "recommendation": "Empfehlung:",
+    "emptyDescription": "Bitte geben Sie zuerst eine Beschreibung ein.",
+    "error": "Empfehlung konnte nicht abgerufen werden. Bitte versuchen Sie es erneut."
+  },
+  "bookmarks": {
+    "title": "Gespeicherte Elemente",
+    "empty": "Noch keine gespeicherten Elemente.",
+    "close": "Schließen"
+  },
+  "preferences": {
+    "title": "Einstellungen",
+    "language": "Sprache",
+    "currency": "Währung",
+    "close": "Schließen",
+    "save": "Speichern"
+  },
+  "questionnaire": {
+    "title": "MoodyChimp — Kursempfehlungs-Fragebogen",
+    "section": "Abschnitt",
+    "of": "von",
+    "back": "← Zurück",
+    "next": "Weiter →",
+    "submit": "Absenden",
+    "sections": {
+      "1": "Abschnitt 1 — Hintergrund & Erfahrung",
+      "2": "Abschnitt 2 — Kreativ vs. Technisch",
+      "3": "Abschnitt 3 — Präferenzen & Interessen",
+      "4": "Abschnitt 4 — Engagement & Lernstil",
+      "5": "Abschnitt 5 — Selbsteinschätzung der Fähigkeiten"
+    },
+    "questions": {
+      "q1": {
+        "label": "1. Wie würden Sie Ihr aktuelles Können in digitaler Kunst oder Kreation beschreiben?",
+        "options": {
+          "totalBeginner": "Völliger Anfänger",
+          "beginner": "Anfänger (einige Versuche, kein strukturiertes Lernen)",
+          "intermediate": "Fortgeschritten (kann kleine Projekte abschließen)",
+          "advanced": "Professionell (professioneller oder nahezu professioneller Workflow)"
+        }
+      },
+      "q2": {
+        "label": "2. Haben Sie schon einmal eines der folgenden erstellt? (Alle zutreffenden auswählen)",
+        "options": {
+          "drawings": "Zeichnungen oder Illustrationen",
+          "animations": "Einfache Animationen oder Bewegungsstudien",
+          "gameConcepts": "Spielkonzepte oder Prototypen",
+          "characterDesigns": "Charakterdesigns",
+          "3dModels": "3D-Modelle",
+          "none": "Keines der oben genannten"
+        }
+      },
+      "q3": {
+        "label": "3. Welche Tools haben Sie schon verwendet? (Alle zutreffenden auswählen)",
+        "options": {
+          "drawingSoftware": "Zeichensoftware (Krita, Photoshop, Procreate…)",
+          "gameEngines": "Spiel-Engines (Unity, Unreal, Godot)",
+          "animationTools": "Animations-Tools (Toon Boom, Blender, RoughAnimator)",
+          "codingEnvironments": "Programmierumgebungen",
+          "none": "Keine"
+        }
+      },
+      "q4": {
+        "label": "4. Welche Aussage beschreibt Sie am besten?",
+        "options": {
+          "creative": "Ich genieße es, Ideen, Charaktere, Geschichten, Visuals zu entwickeln.",
+          "technical": "Ich genieße es, Systeme, Logik, Mechaniken, Tools zu bauen.",
+          "both": "Eine Mischung aus beidem."
+        }
+      },
+      "q5": {
+        "label": "5. Was genießen Sie mehr?",
+        "options": {
+          "improvisation": "Kreative Improvisation und visuelle Entscheidungen",
+          "problemSolving": "Schritt-für-Schritt Problemlösung und Struktur",
+          "bothEqually": "Beides gleich"
+        }
+      },
+      "q6": {
+        "label": "6. Was frustriert Sie am meisten?",
+        "options": {
+          "drawing": "Nicht in der Lage zu sein, das zu zeichnen, was ich mir vorstelle",
+          "technical": "Die technischen Tools nicht zu verstehen (Programmierung, Engines, Workflows)",
+          "discipline": "Mangel an Disziplin / keine Richtung",
+          "nothing": "Nichts Besonderes"
+        }
+      },
+      "q7": {
+        "label": "7. Was ist Ihr Hauptgrund, MoodyChimp beizutreten?",
+        "options": {
+          "game": "Lernen, wie man mein erstes Spiel macht",
+          "animation": "Meine Animationsfähigkeiten verbessern",
+          "drawing": "Das Zeichnen der menschlichen Figur auf einfachere, kraftvolle Weise meistern",
+          "explore": "Verschiedene kreative Bereiche erkunden",
+          "career": "Eine langfristige kreative Karriere aufbauen"
+        }
+      },
+      "q8": {
+        "label": "8. Welche Bereiche begeistern Sie am meisten? (Bis zu 2 auswählen)",
+        "options": {
+          "characters": "Charaktere und Geschichtenerzählen",
+          "movement": "Bewegung, Motion und Dynamik",
+          "worldbuilding": "Weltenbau und Mechaniken",
+          "design": "Design und Stil",
+          "technical": "Technische Systeme und Struktur",
+          "anatomy": "Menschliche Anatomie, Genauigkeit und Form"
+        }
+      },
+      "q9": {
+        "label": "9. Wie viel Zeit können Sie wöchentlich investieren?",
+        "options": {
+          "1to2": "1–2 Stunden",
+          "3to5": "3–5 Stunden",
+          "6to10": "6–10 Stunden",
+          "10plus": "10+ Stunden"
+        }
+      },
+      "q10": {
+        "label": "10. Welche Art des Lernens bevorzugen Sie?",
+        "options": {
+          "handsOn": "Praktische Übungen und kleine Projekte",
+          "guided": "Schritt-für-Schritt geführte Lektionen",
+          "challenges": "Große kreative Herausforderungen",
+          "theoryFirst": "Theorie zuerst, dann Praxis",
+          "practiceFirst": "Praxis zuerst, minimale Theorie"
+        }
+      },
+      "q11": {
+        "label": "11. Wie stehen Sie zum Lernen komplexer Software?",
+        "options": {
+          "loveIt": "Ich liebe es",
+          "dontMind": "Es stört mich nicht",
+          "preferSimple": "Ich bevorzuge einfache Tools",
+          "avoid": "Ich vermeide es, es sei denn, es ist notwendig"
+        }
+      },
+      "q12": {
+        "label": "12. Wie sicher fühlen Sie sich beim Zeichnen der menschlichen Figur?",
+        "options": {
+          "neverTried": "Ich habe es nie ernsthaft versucht",
+          "someBasics": "Ich kenne einige Grundlagen",
+          "basicPoses": "Ich kann grundlegende Posen zeichnen",
+          "forms": "Ich verstehe Formen und Perspektive",
+          "confident": "Ich bin sicher, Menschen aus der Vorstellung zu zeichnen"
+        }
+      },
+      "q13": {
+        "label": "13. Wie sicher fühlen Sie sich bei Animation?",
+        "options": {
+          "neverTried": "Nie versucht",
+          "simple": "Kann einfache Bouncing Balls oder Skizzen machen",
+          "simpleCharacters": "Kann einfache Charaktere animieren",
+          "intermediate": "Kann fortgeschrittene Sequenzen animieren",
+          "strong": "Starkes Selbstvertrauen"
+        }
+      },
+      "q14": {
+        "label": "14. Wie sicher fühlen Sie sich bei der Spieleentwicklung?",
+        "options": {
+          "totalBeginner": "Völliger Anfänger",
+          "tried": "Ein- oder zweimal versucht",
+          "prototypes": "Kann kleine Prototypen erstellen",
+          "understand": "Verstehe eine Spiel-Engine gut",
+          "advanced": "Fortgeschritten"
+        }
+      }
+    },
+    "result": {
+      "gameDev": {
+        "title": "Du bist ein NerdyChimp!",
+        "description": "Der Fragebogen hat bestimmt, dass der optimale Kurs für dich GameDev ist"
+      },
+      "animation": {
+        "title": "Du bist ein GetReadyToBeASlaveChimp!",
+        "description": "Der Fragebogen hat bestimmt, dass der optimale Kurs für dich Animation ist"
+      },
+      "simplifying": {
+        "title": "Du bist ein BrokeChimp!",
+        "description": "Der Fragebogen hat bestimmt, dass der optimale Kurs für dich Simplifying The Human Figure ist"
+      },
+      "default": {
+        "title": "Danke!",
+        "description": "Dein optimaler Kurs wurde bestimmt."
+      }
+    }
+  },
+  "bananaGame": {
+    "ariaLabel": "Banane anklicken",
+    "tooltip": "Klickanzahl: {{count}}",
+    "milestone10": "🎉 10 Klicks! Du verstehst es langsam!",
+    "milestone50": "🌟 50 Klicks! Du bist ein Bananen-Meister!",
+    "milestone100": "🏆 100 Klicks! Legendärer Bananen-Klicker!",
+    "milestone100plus": "🔥 {{count}} Klicks! Du bist unaufhaltsam!"
+  },
+  "notifications": {
+    "title": "Benachrichtigungen",
+    "bellAriaLabel": "Benachrichtigungen",
+    "bellTitle": "{{count}} ungelesene Benachrichtigungen",
+    "empty": "Keine Benachrichtigungen",
+    "markAllRead": "Alle als gelesen markieren",
+    "clearAll": "Alle löschen",
+    "incompleteProfile": "Vervollständigen Sie Ihr Profil, um mehr Funktionen freizuschalten!",
+    "firstLogin": "🎉 Willkommen bei MoodyChimp! Sie haben Ihre erste Errungenschaft freigeschaltet!"
+  },
+  "recentlyViewed": {
+    "title": "Kürzlich angesehen",
+    "course": "Kurs",
+    "service": "Service"
+  }
+}
