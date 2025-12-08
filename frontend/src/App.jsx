@@ -37,6 +37,7 @@ import { convertAndFormatPrice, formatPrice, convertCurrency, parsePrice } from 
 import { checkAchievements } from './achievements';
 import { useWaveAnimation } from './hooks/useWaveAnimation';
 import WaveAnimatedElement from './components/WaveAnimatedElement';
+import { getApiUrl } from './config';
 
 const highlightWords = [
   { text: 'creative', className: 'word-brutal' },
@@ -317,7 +318,7 @@ export default function App() {
 
         // Fetch Learn services (course services)
         try {
-          const learnResponse = await fetch('http://localhost:4000/api/course-services');
+          const learnResponse = await fetch(getApiUrl('api/course-services'));
           if (learnResponse.ok) {
             const learnData = await learnResponse.json();
             if (learnData.success && Array.isArray(learnData.services)) {
@@ -337,7 +338,7 @@ export default function App() {
 
         // Fetch all Create services
         try {
-          const createResponse = await fetch('http://localhost:4000/api/services');
+          const createResponse = await fetch(getApiUrl('api/services'));
           if (createResponse.ok) {
             const createData = await createResponse.json();
             if (createData.success && Array.isArray(createData.services)) {
@@ -393,7 +394,7 @@ export default function App() {
       const reviewsMap = {};
       for (const course of learnServices) {
         try {
-          const response = await fetch(`http://localhost:4000/api/reviews/course/${course.id}`);
+          const response = await fetch(getApiUrl(`api/reviews/course/${course.id}`));
           const data = await response.json();
           if (data.success) {
             reviewsMap[course.id] = {
@@ -420,14 +421,14 @@ export default function App() {
       if (userEmail) {
         try {
           // Fetch optimal course
-          const optimalResponse = await fetch(`http://localhost:4000/api/user-optimal/${encodeURIComponent(userEmail)}`);
+          const optimalResponse = await fetch(getApiUrl(`api/user-optimal/${encodeURIComponent(userEmail)}`));
           const optimalData = await optimalResponse.json();
           if (optimalData.success && optimalData.optimalCourse) {
             setUserOptimalCourse(optimalData.optimalCourse);
           }
 
           // Fetch user profile (for avatar and color theme)
-          const profileResponse = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`);
+          const profileResponse = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`));
           const profileData = await profileResponse.json();
           if (profileData.success && profileData.user) {
             setUserAvatar(profileData.user.avatar_url || null);
@@ -459,7 +460,7 @@ export default function App() {
       if (userEmail) {
         // Load from database
         try {
-          const response = await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}`);
+          const response = await fetch(getApiUrl(`api/bookmarks/${encodeURIComponent(userEmail)}`));
           if (response.ok) {
             const data = await response.json();
             if (data.success && data.bookmarks) {
@@ -509,7 +510,7 @@ export default function App() {
       try {
         if (isAdding) {
           // Add bookmark to database
-          await fetch('http://localhost:4000/api/bookmarks', {
+          await fetch(getApiUrl('api/bookmarks'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -521,7 +522,7 @@ export default function App() {
           });
 
           // Get updated count from database for achievement checking
-          const countResponse = await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}/count`);
+          const countResponse = await fetch(getApiUrl(`api/bookmarks/${encodeURIComponent(userEmail)}/count`));
           if (countResponse.ok) {
             const countData = await countResponse.json();
             const bookmarkCount = countData.count || 0;
@@ -550,7 +551,7 @@ export default function App() {
           }
       } else {
           // Remove bookmark from database
-          await fetch(`http://localhost:4000/api/bookmarks/${encodeURIComponent(userEmail)}/${courseId}`, {
+          await fetch(getApiUrl(`api/bookmarks/${encodeURIComponent(userEmail)}/${courseId}`), {
             method: 'DELETE',
           });
         }
@@ -910,7 +911,7 @@ export default function App() {
   const handleProfileUpdate = async () => {
     if (userEmail) {
       try {
-        const profileResponse = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`);
+        const profileResponse = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`));
         const profileData = await profileResponse.json();
         if (profileData.success && profileData.user) {
           setUserAvatar(profileData.user.avatar_url || null);
@@ -1735,7 +1736,7 @@ export default function App() {
 
               // Fetch user's preferred color theme from database
               try {
-                const profileResponse = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(email)}`);
+                const profileResponse = await fetch(getApiUrl(`api/user/${encodeURIComponent(email)}`));
                 const profileData = await profileResponse.json();
                 if (profileData.success && profileData.user) {
                   setUserData(profileData.user); // Store user data for notifications
@@ -1771,7 +1772,7 @@ export default function App() {
               });
 
               // Check for discount availability and notify user
-              fetch(`http://localhost:4000/api/user/${encodeURIComponent(email)}/achievements`)
+              fetch(getApiUrl(`api/user/${encodeURIComponent(email)}/achievements`))
                 .then(res => res.json())
                 .then(data => {
                   if (data.success && data.discountAvailable && !data.discountGranted) {

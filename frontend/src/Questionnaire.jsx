@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from './i18n/index.jsx';
+import { getApiUrl } from './config';
 import './Questionnaire.css';
 
 const Questionnaire = ({ userEmail, onComplete, onClose }) => {
@@ -51,7 +52,7 @@ const Questionnaire = ({ userEmail, onComplete, onClose }) => {
 
   const handleSubmit = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/questionnaire', {
+      const response = await fetch(getApiUrl('api/questionnaire'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userEmail, answers })

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from './i18n/index.jsx';
 import { checkAchievements } from './achievements';
+import { getApiUrl } from './config';
 import './BananaGame.css';
 
 const BananaGame = ({ userEmail }) => {
@@ -14,7 +15,7 @@ const BananaGame = ({ userEmail }) => {
   // Load banana clicks from database on mount
   useEffect(() => {
     if (userEmail) {
-      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/banana-clicks`)
+      fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/banana-clicks`))
         .then(res => res.json())
         .then(data => {
           if (data.success) {
@@ -34,7 +35,7 @@ const BananaGame = ({ userEmail }) => {
   // Save to database whenever clickCount changes (only if user is logged in)
   useEffect(() => {
     if (userEmail && !isLoading && clickCount > 0) {
-      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/banana-clicks`, {
+      fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/banana-clicks`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

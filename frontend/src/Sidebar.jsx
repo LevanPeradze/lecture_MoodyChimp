@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logoImage from './assets/logo.png';
 import { useI18n } from './i18n/index.jsx';
+import { getApiUrl } from './config';
 import './Sidebar.css';
 
 const Sidebar = ({ isOpen, onClose, bookmarkedCoursesCount, isLoggedIn, userEmail }) => {
@@ -72,7 +73,7 @@ const Sidebar = ({ isOpen, onClose, bookmarkedCoursesCount, isLoggedIn, userEmai
     const fetchNotes = async () => {
       if (userEmail) {
         try {
-          const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/notes`);
+          const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/notes`));
           if (response.ok) {
             const data = await response.json();
             setSavedNotes(data);
@@ -105,7 +106,7 @@ const Sidebar = ({ isOpen, onClose, bookmarkedCoursesCount, isLoggedIn, userEmai
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/notes`, {
+      const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/notes`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -140,7 +141,7 @@ const Sidebar = ({ isOpen, onClose, bookmarkedCoursesCount, isLoggedIn, userEmai
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/notes`, {
+      const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/notes`), {
         method: 'DELETE',
       });
 

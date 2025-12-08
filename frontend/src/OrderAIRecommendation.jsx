@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useI18n } from './i18n/index.jsx';
 import { convertCurrency, formatPrice } from './i18n/currency';
+import { getApiUrl } from './config';
 import './OrderAIRecommendation.css';
 
 const OrderAIRecommendation = ({ 
@@ -36,7 +37,7 @@ const OrderAIRecommendation = ({
     setRecommendedTotal(null);
 
     try {
-      const response = await fetch('http://localhost:4000/api/recommend-order', {
+      const response = await fetch(getApiUrl('api/recommend-order'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

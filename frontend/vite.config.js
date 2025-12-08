@@ -7,11 +7,15 @@ export default defineConfig({
     port: 5173,
     open: true,
     proxy: {
-      '/api': 'http://localhost:4000'
+      '/api': process.env.VITE_API_BASE_URL || 'http://localhost:4000'
     }
   },
   optimizeDeps: {
     exclude: []
+  },
+  define: {
+    // Make environment variables available in the app
+    'import.meta.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'http://localhost:4000')
   }
 });
 
