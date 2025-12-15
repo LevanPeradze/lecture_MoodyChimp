@@ -1,4 +1,5 @@
 // Achievement definitions and tracking system
+import { getApiUrl } from './config';
 
 export const ACHIEVEMENTS = {
   'first-login': {
@@ -73,7 +74,7 @@ export const getUnlockedAchievements = async (userEmail) => {
   if (!userEmail) return {};
   
   try {
-    const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`);
+    const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/achievements`));
     if (response.ok) {
       const data = await response.json();
       return data.achievements || {};
@@ -93,7 +94,7 @@ export const saveUnlockedAchievements = async (userEmail, achievements, discount
     if (discountGranted !== null) body.discountGranted = discountGranted;
     if (discountAvailable !== null) body.discountAvailable = discountAvailable;
     
-    await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`, {
+    await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/achievements`), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -153,7 +154,7 @@ export const checkAllAchievementsDiscount = async (userEmail) => {
 
   try {
     // Get current discount status from database
-    const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`);
+    const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/achievements`));
     if (response.ok) {
       const data = await response.json();
       

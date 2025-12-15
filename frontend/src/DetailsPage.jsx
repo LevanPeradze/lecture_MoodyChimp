@@ -4,6 +4,7 @@ import ReviewSection from './ReviewSection';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
 import { checkAchievements } from './achievements';
+import { getApiUrl } from './config';
 import './DetailsPage.css';
 import './OrderPage.css';
 
@@ -71,7 +72,7 @@ const DetailsPage = ({ isLoggedIn, bookmarkedCourses, onToggleBookmark, userOpti
         setLoading(true);
         setError(null);
 
-        const endpoint = `http://localhost:4000/api/course-services/${id}`;
+        const endpoint = getApiUrl(`api/course-services/${id}`);
 
         const response = await fetch(endpoint);
         const data = await response.json();

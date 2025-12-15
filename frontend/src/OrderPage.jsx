@@ -5,6 +5,7 @@ import { formatPrice, convertCurrency } from './i18n/currency';
 import { trackRecentlyViewed } from './DetailsPage';
 import { checkAchievements } from './achievements';
 import OrderAIRecommendation from './OrderAIRecommendation';
+import { getApiUrl } from './config';
 import './OrderPage.css';
 
 const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
@@ -39,8 +40,8 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
         setLoading(true);
         const id = orderType === 'course' ? courseId : serviceId;
         const endpoint = orderType === 'course' 
-          ? `http://localhost:4000/api/course-services/${id}`
-          : `http://localhost:4000/api/services/${id}`;
+          ? getApiUrl(`api/course-services/${id}`)
+          : getApiUrl(`api/services/${id}`);
         
         const response = await fetch(endpoint);
         const data = await response.json();
@@ -100,7 +101,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
 
     // Check for achievement discount
     if (userEmail && typeof window !== 'undefined') {
-      fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`)
+      fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/achievements`))
         .then(res => res.json())
         .then(data => {
           if (data.success && data.discountAvailable) {
@@ -186,8 +187,8 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
 
       // Use different endpoints for courses vs services
       const endpoint = orderType === 'course' 
-        ? 'http://localhost:4000/api/course-enrollments'
-        : 'http://localhost:4000/api/orders';
+        ? getApiUrl('api/course-enrollments')
+        : getApiUrl('api/orders');
 
       const requestBody = orderType === 'course' 
         ? {
@@ -227,7 +228,7 @@ const OrderPage = ({ userEmail, isLoggedIn, orderType = 'service' }) => {
         
         // Remove discount after successful order (one-time use)
         if (hasDiscount && userEmail) {
-          fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}/achievements`, {
+          fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}/achievements`), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

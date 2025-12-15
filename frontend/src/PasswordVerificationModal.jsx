@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getApiUrl } from './config';
 
 const PasswordVerificationModal = ({ isOpen, onClose, onSuccess, onError }) => {
   const [password, setPassword] = useState('');
@@ -19,7 +20,7 @@ const PasswordVerificationModal = ({ isOpen, onClose, onSuccess, onError }) => {
         return;
       }
 
-      const response = await fetch('http://localhost:4000/api/verify-password', {
+      const response = await fetch(getApiUrl('api/verify-password'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

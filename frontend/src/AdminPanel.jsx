@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LayoutDashboard, FileText, Users, Settings, Bell, Globe, TrendingUp, Eye, Plus, Search, Edit, Trash2, Mail, X, Upload, ImageIcon, Send } from './AdminIcons';
+import { getApiUrl } from './config';
 import './AdminPanel.css';
 
 const AdminPanel = ({ userEmail, onBack }) => {
@@ -17,7 +18,7 @@ const AdminPanel = ({ userEmail, onBack }) => {
       }
 
       try {
-        const response = await fetch(`http://localhost:4000/api/admin/check/${encodeURIComponent(userEmail)}`);
+        const response = await fetch(getApiUrl(`api/admin/check/${encodeURIComponent(userEmail)}`));
         const data = await response.json();
         
         if (data.success && data.isAdmin) {
@@ -237,7 +238,7 @@ const ContentManagerSection = () => {
   const fetchContent = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4000/api/admin/services');
+      const response = await fetch(getApiUrl('api/admin/services'));
       const data = await response.json();
       if (data.success) {
         setServices(data.services || []);
@@ -302,7 +303,7 @@ const ContentManagerSection = () => {
   const handleSave = async () => {
     try {
       if (editingItem.type === 'service') {
-        const response = await fetch(`http://localhost:4000/api/admin/services/${editingItem.id}`, {
+        const response = await fetch(getApiUrl(`api/admin/services/${editingItem.id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(editForm)
@@ -324,7 +325,7 @@ const ContentManagerSection = () => {
           formData.append('image', selectedImageFile);
 
           try {
-            const uploadResponse = await fetch('http://localhost:4000/api/admin/upload-image', {
+            const uploadResponse = await fetch(getApiUrl('api/admin/upload-image'), {
               method: 'POST',
               body: formData
             });
@@ -348,7 +349,7 @@ const ContentManagerSection = () => {
           formData.append('image', selectedThumbnailFile);
 
           try {
-            const uploadResponse = await fetch('http://localhost:4000/api/admin/upload-image', {
+            const uploadResponse = await fetch(getApiUrl('api/admin/upload-image'), {
               method: 'POST',
               body: formData
             });
@@ -367,7 +368,7 @@ const ContentManagerSection = () => {
         }
 
         // Update course with new data
-        const response = await fetch(`http://localhost:4000/api/admin/courses/${editingItem.id}`, {
+        const response = await fetch(getApiUrl(`api/admin/courses/${editingItem.id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -403,7 +404,7 @@ const ContentManagerSection = () => {
 
     try {
       if (item.type === 'service') {
-        const response = await fetch(`http://localhost:4000/api/admin/services/${item.id}`, {
+        const response = await fetch(getApiUrl(`api/admin/services/${item.id}`), {
           method: 'DELETE'
         });
         const data = await response.json();
@@ -420,7 +421,7 @@ const ContentManagerSection = () => {
 
   const handleAdd = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/admin/services', {
+      const response = await fetch(getApiUrl('api/admin/services'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
@@ -906,7 +907,7 @@ const UserManagerSection = ({ userEmail }) => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4000/api/admin/users');
+      const response = await fetch(getApiUrl('api/admin/users'));
       const data = await response.json();
       if (data.success) {
         setUsers(data.users || []);
@@ -939,7 +940,7 @@ const UserManagerSection = ({ userEmail }) => {
       
       console.log('Saving user update:', { userId: editingUser.id, updateData });
       
-      const response = await fetch(`http://localhost:4000/api/admin/users/${editingUser.id}`, {
+      const response = await fetch(getApiUrl(`api/admin/users/${editingUser.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updateData)
@@ -970,7 +971,7 @@ const UserManagerSection = ({ userEmail }) => {
     if (!window.confirm(`Are you sure you want to delete user "${user.email}"? This action cannot be undone.`)) return;
 
     try {
-      const response = await fetch(`http://localhost:4000/api/admin/users/${user.id}`, {
+      const response = await fetch(getApiUrl(`api/admin/users/${user.id}`), {
         method: 'DELETE'
       });
       const data = await response.json();
@@ -991,7 +992,7 @@ const UserManagerSection = ({ userEmail }) => {
 
     setSendingMessage(true);
     try {
-      const response = await fetch('http://localhost:4000/api/admin/send-message', {
+      const response = await fetch(getApiUrl('api/admin/send-message'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1413,7 +1414,7 @@ const SettingsSection = ({ userEmail }) => {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:4000/api/admin/settings');
+      const response = await fetch(getApiUrl('api/admin/settings'));
       const data = await response.json();
       if (data.success && data.settings) {
         setSiteName(data.settings.site_name || 'MOODYCHIMP');
@@ -1431,7 +1432,7 @@ const SettingsSection = ({ userEmail }) => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch('http://localhost:4000/api/admin/settings', {
+      const response = await fetch(getApiUrl('api/admin/settings'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1479,7 +1480,7 @@ const SettingsSection = ({ userEmail }) => {
 
     try {
       // Get user ID from email
-      const userResponse = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`);
+      const userResponse = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`));
       const userData = await userResponse.json();
       
       if (!userData.success || !userData.user) {
@@ -1487,7 +1488,7 @@ const SettingsSection = ({ userEmail }) => {
       }
 
       // Update password
-      const response = await fetch(`http://localhost:4000/api/admin/users/${userData.user.id}`, {
+      const response = await fetch(getApiUrl(`api/admin/users/${userData.user.id}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword })

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useI18n } from './i18n/index.jsx';
+import { getApiUrl } from './config';
 import './NotificationBell.css';
 
 const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
@@ -42,7 +43,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
     }
 
     try {
-      const response = await fetch(`http://localhost:4000/api/notifications/${encodeURIComponent(userEmail)}`);
+      const response = await fetch(getApiUrl(`api/notifications/${encodeURIComponent(userEmail)}`));
       const data = await response.json();
       
       if (data.success && data.notifications) {
@@ -206,7 +207,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
     if (notificationId.startsWith('msg-')) {
       const dbId = notificationId.replace('msg-', '');
       try {
-        await fetch(`http://localhost:4000/api/notifications/${dbId}/read`, {
+        await fetch(getApiUrl(`api/notifications/${dbId}/read`), {
           method: 'PUT'
         });
       } catch (err) {
@@ -227,7 +228,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
         const messageNotifications = notifications.filter(n => n.id.startsWith('msg-') && !n.read);
         for (const notification of messageNotifications) {
           const dbId = notification.id.replace('msg-', '');
-          await fetch(`http://localhost:4000/api/notifications/${dbId}/read`, {
+          await fetch(getApiUrl(`api/notifications/${dbId}/read`), {
             method: 'PUT'
           });
         }

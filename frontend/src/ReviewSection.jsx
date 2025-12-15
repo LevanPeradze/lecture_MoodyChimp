@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { checkAchievements } from './achievements';
+import { getApiUrl } from './config';
 import './ReviewSection.css';
 
 const ReviewSection = ({ itemId, itemType, userEmail, isLoggedIn }) => {
@@ -21,7 +22,7 @@ const ReviewSection = ({ itemId, itemType, userEmail, isLoggedIn }) => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://localhost:4000/api/reviews/${itemType}/${itemId}`);
+      const response = await fetch(getApiUrl(`api/reviews/${itemType}/${itemId}`));
       const data = await response.json();
       
       if (data.success) {
@@ -68,7 +69,7 @@ const ReviewSection = ({ itemId, itemType, userEmail, isLoggedIn }) => {
     setSubmitMessage('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/reviews', {
+      const response = await fetch(getApiUrl('api/reviews'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

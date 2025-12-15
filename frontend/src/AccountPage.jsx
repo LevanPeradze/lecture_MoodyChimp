@@ -4,6 +4,7 @@ import PasswordVerificationModal from './PasswordVerificationModal';
 import { useI18n } from './i18n/index.jsx';
 import { formatPrice, convertCurrency } from './i18n/currency';
 import { ACHIEVEMENTS, getUnlockedAchievements, checkAchievements } from './achievements';
+import { getApiUrl } from './config';
 
 const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme, setColorTheme }) => {
   const { t, locale, currency } = useI18n();
@@ -68,7 +69,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
   const checkAdminStatus = async () => {
     if (!userEmail) return;
     try {
-      const response = await fetch(`http://localhost:4000/api/admin/check/${encodeURIComponent(userEmail)}`);
+      const response = await fetch(getApiUrl(`api/admin/check/${encodeURIComponent(userEmail)}`));
       const data = await response.json();
       setIsAdmin(data.success && data.isAdmin);
     } catch (error) {
@@ -82,7 +83,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
     if (userEmail && colorTheme) {
       const saveTheme = async () => {
         try {
-          await fetch('http://localhost:4000/api/update-profile', {
+          await fetch(getApiUrl('api/update-profile'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -111,14 +112,14 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
     setLoadingOrders(true);
     try {
       // Fetch course enrollments
-      const enrollmentsResponse = await fetch(`http://localhost:4000/api/course-enrollments/${encodeURIComponent(userEmail)}`);
+      const enrollmentsResponse = await fetch(getApiUrl(`api/course-enrollments/${encodeURIComponent(userEmail)}`));
       const enrollmentsData = await enrollmentsResponse.json();
       if (enrollmentsData.success) {
         setCourseEnrollments(enrollmentsData.enrollments || []);
       }
 
       // Fetch service orders
-      const ordersResponse = await fetch(`http://localhost:4000/api/orders/${encodeURIComponent(userEmail)}`);
+      const ordersResponse = await fetch(getApiUrl(`api/orders/${encodeURIComponent(userEmail)}`));
       const ordersData = await ordersResponse.json();
       if (ordersData.success) {
         setServiceOrders(ordersData.orders || []);
@@ -164,7 +165,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`);
+      const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`));
       const data = await response.json();
       if (response.ok && data.user) {
         setUserPassword(data.user.password);
@@ -248,7 +249,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
         updateData.avatar_url = avatarUrl;
       }
 
-      const response = await fetch('http://localhost:4000/api/update-profile', {
+      const response = await fetch(getApiUrl('api/update-profile'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -286,7 +287,7 @@ const AccountPage = ({ userEmail, onBack, onLogout, onProfileUpdate, colorTheme,
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`http://localhost:4000/api/user/${encodeURIComponent(userEmail)}`, {
+      const response = await fetch(getApiUrl(`api/user/${encodeURIComponent(userEmail)}`), {
         method: 'DELETE',
       });
 

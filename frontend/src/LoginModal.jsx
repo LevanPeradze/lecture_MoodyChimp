@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useI18n } from './i18n/index.jsx';
+import { getApiUrl } from './config';
 
 const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
   const { t } = useI18n();
@@ -22,7 +23,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
     }
 
     try {
-      const response = await fetch('http://localhost:4000/api/signup', {
+      const response = await fetch(getApiUrl('api/signup'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -51,7 +52,7 @@ const LoginModal = ({ isOpen, onClose, onMaybeLater, onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:4000/api/signin', {
+      const response = await fetch(getApiUrl('api/signin'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
