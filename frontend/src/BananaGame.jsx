@@ -44,9 +44,9 @@ const BananaGame = ({ userEmail }) => {
     }
   }, [clickCount, userEmail, isLoading]);
 
-  // Check for unemployment achievement on mount if user is logged in
+  // Check for unemployment achievement when clickCount reaches 500 or when data is loaded
   useEffect(() => {
-    if (userEmail && clickCount >= 500) {
+    if (userEmail && !isLoading && clickCount >= 500) {
       checkAchievements(userEmail, 'banana-clicks', { count: clickCount }).then(achievementNotifications => {
         if (achievementNotifications.length > 0) {
           const existingNotifications = JSON.parse(localStorage.getItem('chimpNotifications') || '[]');
@@ -56,8 +56,7 @@ const BananaGame = ({ userEmail }) => {
         }
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userEmail]);
+  }, [userEmail, clickCount, isLoading]);
 
   const handleBananaClick = () => {
     const newCount = clickCount + 1;
