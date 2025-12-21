@@ -34,7 +34,7 @@ if (process.env.CLOUDINARY_URL) {
 }
 
 // Configure multer for file uploads (memory storage)
-const upload = multer({ 
+const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
@@ -44,17 +44,17 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
+
     // Allow localhost for development
     if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
       return callback(null, true);
     }
-    
+
     // Allow Vercel deployments
     if (origin.includes('vercel.app') || origin.includes('vercel.com')) {
       return callback(null, true);
     }
-    
+
     // Allow all origins in production (you can restrict this if needed)
     callback(null, true);
   },
@@ -136,6 +136,9 @@ pool.query(`
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='banana_clicks') THEN
       ALTER TABLE users ADD COLUMN banana_clicks INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='users' AND column_name='last_achievement_reminder_sent') THEN
+      ALTER TABLE users ADD COLUMN last_achievement_reminder_sent TIMESTAMP;
     END IF;
   END $$;
 `).catch(err => console.error('Error adding columns to users table:', err));
@@ -530,6 +533,20 @@ const appInfo = {
   version: '0.1.0',
   message: 'Welcome to your first full-stack project!'
 };
+
+// Root endpoint - helpful for testing
+app.get('/', (req, res) => {
+  res.json({
+    ok: true,
+    message: 'MoodyChimp Backend API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      status: '/api/status',
+      webhook: '/api/webhook/check-achievements'
+    }
+  });
+});
 
 app.get('/api/status', (req, res) => {
   res.json({
@@ -1076,8 +1093,8 @@ app.post('/api/admin/upload-image', upload.single('image'), async (req, res) => 
 
     console.log('Cloudinary upload successful:', uploadResult.secure_url);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       imageUrl: uploadResult.secure_url,
       publicId: uploadResult.public_id
     });
@@ -2587,6 +2604,139 @@ IMPORTANT:
     res.status(500).json({
       error: 'Internal server error',
       details: error.message || 'Unknown error occurred'
+    });
+  }
+});
+
+// Webhook endpoint for n8n to check achievements and send reminders
+// This endpoint checks all users and sends notifications to those who haven't unlocked all achievements
+app.post('/api/webhook/check-achievements', async (req, res) => {
+  try {
+    // Optional: Add webhook authentication/secret key check here
+    const webhookSecret = req.headers['x-webhook-secret'] || req.body.secret;
+    const expectedSecret = process.env.WEBHOOK_SECRET;
+
+    if (expectedSecret && webhookSecret !== expectedSecret) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid webhook secret' });
+    }
+
+    // Define all achievement IDs (must match frontend/src/achievements.js)
+    const ALL_ACHIEVEMENT_IDS = [
+      'first-login',
+      'quiz-complete',
+      'first-bookmark',
+      'first-service-view',
+      'profile-complete',
+      'first-order',
+      'first-review',
+      'three-bookmarks',
+      'unemployment'
+    ];
+
+    // Get all users
+    const usersResult = await pool.query('SELECT email, achievements, last_achievement_reminder_sent FROM users');
+    const users = usersResult.rows;
+
+    const results = {
+      totalUsers: users.length,
+      checked: 0,
+      notificationsSent: 0,
+      usersWithAllAchievements: 0,
+      errors: []
+    };
+
+    const REMINDER_MESSAGE = 'Unlock all achievements and get 30% off your next purchase!';
+    const REMINDER_TITLE = 'Achievement Reminder';
+    const REMINDER_INTERVAL_MINUTES = 5; // Send reminder every 5 minutes
+
+    // Use a system/admin email as sender (you can configure this)
+    // If the email doesn't exist in users table, we'll use NULL
+    const SYSTEM_SENDER_EMAIL = process.env.SYSTEM_SENDER_EMAIL || 'system@moodychimp.com';
+
+    // Verify system sender email exists, otherwise use NULL
+    let actualSenderEmail = null;
+    if (SYSTEM_SENDER_EMAIL) {
+      const senderCheck = await pool.query('SELECT email FROM users WHERE email = $1', [SYSTEM_SENDER_EMAIL]);
+      if (senderCheck.rows.length > 0) {
+        actualSenderEmail = SYSTEM_SENDER_EMAIL;
+      }
+      // If sender doesn't exist, actualSenderEmail remains null (which is allowed)
+    }
+
+    for (const user of users) {
+      try {
+        results.checked++;
+
+        // Parse achievements
+        let achievements = {};
+        if (user.achievements) {
+          if (typeof user.achievements === 'string') {
+            try {
+              achievements = JSON.parse(user.achievements);
+            } catch (e) {
+              achievements = {};
+            }
+          } else if (typeof user.achievements === 'object') {
+            achievements = user.achievements;
+          }
+        }
+
+        // Check if user has all achievements unlocked
+        const unlockedCount = Object.keys(achievements).filter(key => achievements[key] === true).length;
+        const hasAllAchievements = unlockedCount === ALL_ACHIEVEMENT_IDS.length;
+
+        if (hasAllAchievements) {
+          results.usersWithAllAchievements++;
+          continue; // Skip users who have all achievements
+        }
+
+        // Check if we should send a reminder (only if 5+ minutes have passed since last reminder)
+        const now = new Date();
+        const lastReminderSent = user.last_achievement_reminder_sent
+          ? new Date(user.last_achievement_reminder_sent)
+          : null;
+
+        if (lastReminderSent) {
+          const minutesSinceLastReminder = (now - lastReminderSent) / (1000 * 60);
+          if (minutesSinceLastReminder < REMINDER_INTERVAL_MINUTES) {
+            continue; // Too soon to send another reminder
+          }
+        }
+
+        // Send notification
+        const notificationResult = await pool.query(
+          `INSERT INTO notifications (user_email, title, message, type, sender_email, read)
+           VALUES ($1, $2, $3, 'message', $4, FALSE)
+           RETURNING id`,
+          [user.email, REMINDER_TITLE, REMINDER_MESSAGE, actualSenderEmail]
+        );
+
+        // Update last_achievement_reminder_sent timestamp
+        await pool.query(
+          'UPDATE users SET last_achievement_reminder_sent = CURRENT_TIMESTAMP WHERE email = $1',
+          [user.email]
+        );
+
+        results.notificationsSent++;
+        console.log(`Achievement reminder sent to: ${user.email}`);
+
+      } catch (userError) {
+        console.error(`Error processing user ${user.email}:`, userError);
+        results.errors.push({ email: user.email, error: userError.message });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Achievement check completed',
+      results
+    });
+
+  } catch (error) {
+    console.error('Webhook check achievements error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      details: error.message
     });
   }
 });
