@@ -25,10 +25,17 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
   });
   const [showDropdown, setShowDropdown] = useState(false);
   const isInitialMount = useRef(true);
+  const justClearedRef = useRef(false);
 
   // Function to fetch messages from database
   const fetchMessages = useCallback(async () => {
     if (!userEmail) return;
+    
+    // Don't fetch if we just cleared notifications (prevent immediate repopulation)
+    if (justClearedRef.current) {
+      justClearedRef.current = false;
+      return;
+    }
 
     // Load achievement notifications from localStorage
     const saved = localStorage.getItem('chimpNotifications');
@@ -99,6 +106,11 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
     
     // Listen for achievement updates
     const handleAchievementsUpdated = () => {
+      // Don't update if we just cleared notifications
+      if (justClearedRef.current) {
+        return;
+      }
+      
       const saved = localStorage.getItem('chimpNotifications');
       if (saved) {
         try {
@@ -145,7 +157,7 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
 
   // Save notifications to LocalStorage whenever they change (only after initial load)
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isInitialMount.current) {
+    if (typeof window !== 'undefined' && !isInitialMount.current && !justClearedRef.current) {
       // Ensure we only save achievement notifications
       const achievementOnly = notifications.filter(n => n.type === 'achievement');
       localStorage.setItem('chimpNotifications', JSON.stringify(achievementOnly));
@@ -239,25 +251,39 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
   };
 
   const handleClearAll = async () => {
-    // Clear achievement notifications from localStorage
+    // Set flag to prevent immediate refetch
+    justClearedRef.current = true;
+    
+    // Clear achievement notifications from localStorage first
     if (typeof window !== 'undefined') {
       localStorage.removeItem('chimpNotifications');
     }
 
+    // Clear local state immediately for better UX
+    setNotifications([]);
+    setShowDropdown(false);
+
     // Delete all message notifications from the database
     if (userEmail) {
       try {
-        await fetch(getApiUrl(`api/notifications/${encodeURIComponent(userEmail)}`), {
+        const response = await fetch(getApiUrl(`api/notifications/${encodeURIComponent(userEmail)}`), {
           method: 'DELETE'
         });
+        if (!response.ok) {
+          console.error('Failed to delete notifications from database');
+          // Even if delete fails, keep the flag set to prevent repopulation
+        }
       } catch (err) {
         console.error('Error deleting notifications:', err);
+        // Even if delete fails, keep the flag set to prevent repopulation
       }
     }
-
-    // Clear local state
-    setNotifications([]);
-    setShowDropdown(false);
+    
+    // Reset flag after a longer delay to ensure all pending fetches are skipped
+    // This prevents the polling mechanism and event listeners from repopulating
+    setTimeout(() => {
+      justClearedRef.current = false;
+    }, 5000); // 5 seconds should be enough to skip at least one polling cycle
   };
 
   // Don't show notification bell if user is not logged in
