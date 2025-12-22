@@ -238,7 +238,24 @@ const NotificationBell = ({ userEmail, isLoggedIn, userData }) => {
     }
   };
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
+    // Clear achievement notifications from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('chimpNotifications');
+    }
+
+    // Delete all message notifications from the database
+    if (userEmail) {
+      try {
+        await fetch(getApiUrl(`api/notifications/${encodeURIComponent(userEmail)}`), {
+          method: 'DELETE'
+        });
+      } catch (err) {
+        console.error('Error deleting notifications:', err);
+      }
+    }
+
+    // Clear local state
     setNotifications([]);
     setShowDropdown(false);
   };

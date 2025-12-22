@@ -1389,6 +1389,27 @@ app.put('/api/notifications/:id/read', async (req, res) => {
   }
 });
 
+// Delete all notifications for a user
+app.delete('/api/notifications/:userEmail', async (req, res) => {
+  try {
+    const { userEmail } = req.params;
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'User email is required' });
+    }
+
+    const result = await pool.query(
+      'DELETE FROM notifications WHERE user_email = $1',
+      [userEmail]
+    );
+
+    res.json({ success: true, message: 'All notifications deleted successfully' });
+  } catch (error) {
+    console.error('Delete notifications error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Verify password endpoint
 app.post('/api/verify-password', async (req, res) => {
   try {
@@ -2645,7 +2666,7 @@ app.post('/api/webhook/check-achievements', async (req, res) => {
       errors: []
     };
 
-    const REMINDER_MESSAGE = 'Unlock all achievements and get 30% off your next purchase!';
+    const REMINDER_MESSAGE = 'Complete all achievements to earn a 30% discount on all purchases';
     const REMINDER_TITLE = 'Achievement Reminder';
     const REMINDER_INTERVAL_MINUTES = 5; // Send reminder every 5 minutes
 
